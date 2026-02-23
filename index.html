@@ -1,0 +1,2497 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Lease vs Rent - Advanced BI Dashboard</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-datalabels@2"></script>
+    <style>
+        .card, .chartCard, .metric-card, input[type="range"], button {
+            will-change: transform, box-shadow;
+            transform: translate3d(0, 0, 0);
+            backface-visibility: hidden;
+        }
+
+        /* Validation warning banner */
+        .validation-banner {
+            display: none;
+            padding: 10px 14px;
+            border-radius: 8px;
+            font-size: 12px;
+            font-weight: 600;
+            line-height: 1.6;
+            margin-bottom: 12px;
+            border-left: 4px solid;
+        }
+        .validation-banner.error {
+            background: rgba(255,77,77,0.1);
+            border-color: var(--red);
+            color: var(--red);
+        }
+        .validation-banner.warning {
+            background: rgba(241,196,15,0.1);
+            border-color: var(--amber);
+            color: var(--amber);
+        }
+        .validation-banner.show { display: block; }
+        .validation-banner ul { margin: 4px 0 0 16px; }
+        .validation-banner li { margin: 2px 0; }
+
+        /* Skip to content */
+        .skip-link {
+            position: absolute;
+            top: -40px;
+            left: 8px;
+            background: var(--accent);
+            color: #060d15;
+            padding: 8px 16px;
+            border-radius: 0 0 8px 8px;
+            font-weight: 700;
+            font-size: 14px;
+            z-index: 10000;
+            transition: top 0.2s;
+            text-decoration: none;
+        }
+        .skip-link:focus { top: 0; }
+
+        /* Direction indicator chips for color-blind support */
+        .dir-indicator {
+            display: inline-block;
+            font-size: 10px;
+            font-weight: 900;
+            margin-left: 4px;
+            vertical-align: middle;
+        }
+
+        /* Scenario preset buttons */
+        .presets-bar {
+            display: flex;
+            gap: 8px;
+            flex-wrap: wrap;
+            align-items: center;
+            padding: 10px 14px;
+            background: rgba(77,179,255,0.04);
+            border: 1px solid var(--border);
+            border-radius: 10px;
+            margin-bottom: 16px;
+        }
+        .presets-label { font-size: 11px; font-weight: 700; color: var(--muted); text-transform: uppercase; letter-spacing: 0.4px; white-space: nowrap; }
+        .preset-btn {
+            padding: 5px 12px;
+            border-radius: 20px;
+            border: 1.5px solid var(--border);
+            background: transparent;
+            color: var(--text);
+            font-size: 12px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.25s cubic-bezier(0.4,0,0.2,1);
+        }
+        .preset-btn:hover { border-color: var(--accent); background: rgba(77,179,255,0.1); transform: translateY(-2px); }
+        .preset-btn:focus-visible { outline: 3px dashed var(--accent); outline-offset: 3px; }
+
+        /* Collapsible sections */
+        .section-toggle {
+            width: 100%;
+            background: none;
+            border: none;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 0;
+            color: var(--accent);
+            font-size: 13px;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.4px;
+            margin-bottom: 0;
+        }
+        .section-toggle .toggle-arrow { font-size: 12px; transition: transform 0.3s ease; color: var(--muted); }
+        .section-toggle.collapsed .toggle-arrow { transform: rotate(-90deg); }
+        .collapsible-body { overflow: hidden; transition: max-height 0.35s cubic-bezier(0.4,0,0.2,1), opacity 0.3s ease; max-height: 2000px; opacity: 1; }
+        .collapsible-body.collapsed { max-height: 0; opacity: 0; }
+
+        /* Input validation */
+        input.input-error { border-color: var(--red) !important; box-shadow: 0 0 0 3px rgba(255,77,77,0.15) !important; }
+        .field-error-msg { font-size: 10px; color: var(--red); font-weight: 600; margin-top: 2px; display: none; }
+        .field-error-msg.show { display: block; }
+
+        /* Keyboard shortcut hint */
+        .kbd-hint {
+            font-size: 10px;
+            color: var(--muted);
+            opacity: 0.7;
+            font-family: 'Courier New', monospace;
+            background: rgba(255,255,255,0.06);
+            border: 1px solid var(--border);
+            border-radius: 4px;
+            padding: 1px 5px;
+            margin-left: 4px;
+        }
+
+        @media (max-width: 768px) {
+            .presets-bar { gap: 6px; padding: 8px 10px; }
+            .preset-btn { font-size: 11px; padding: 4px 10px; }
+        }
+
+        @media (prefers-reduced-motion: reduce) {
+            * {
+                animation-duration: 0.01ms !important;
+                animation-iteration-count: 1 !important;
+                transition-duration: 0.01ms !important;
+                scroll-behavior: auto !important;
+            }
+            .gauge { transition: none !important; }
+            .card, .chartCard {
+                animation: none !important;
+                transition: opacity 0.1ms, box-shadow 0.1ms, border-color 0.1ms !important;
+            }
+            .metric-card {
+                animation: none !important;
+                transition: background 0.1ms, border 0.1ms, transform 0.1ms !important;
+            }
+            input[type="range"]::-webkit-slider-thumb,
+            input[type="range"]::-moz-range-thumb { transition: none !important; }
+        }
+
+        :root {
+            --bg: #060d15;
+            --card: #0e1a27;
+            --card-rgb: 14, 26, 39;
+            --text: #eaf2f9;
+            --accent: #4db3ff;
+            --muted: #94a8bd;
+            --green: #2ecc71;
+            --amber: #f1c40f;
+            --red: #ff4d4d;
+            --purple: #9b59b6;
+            --border: #1a2a38;
+            --cyan: #00d4ff;
+            --orange: #ff8c3a;
+        }
+
+        body.light {
+            --bg: #f8fafb;
+            --card: #ffffff;
+            --card-rgb: 255, 255, 255;
+            --text: #0f172a;
+            --accent: #1e40af;
+            --muted: #475569;
+            --border: #cbd5e1;
+        }
+
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+            background: var(--bg);
+            color: var(--text);
+            transition: background-color 0.6s cubic-bezier(0.4, 0, 0.2, 1), color 0.6s cubic-bezier(0.4, 0, 0.2, 1);
+            scroll-behavior: smooth;
+            padding: 20px;
+            min-height: 100vh;
+        }
+
+        .container {
+            max-width: 1600px;
+            margin: 0 auto;
+            display: grid;
+            gap: 24px;
+            animation: fadeInChart 1s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+
+        .header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 16px 0;
+            border-bottom: 1px solid var(--border);
+            margin-bottom: 8px;
+        }
+
+        .logo {
+            font-size: 26px;
+            font-weight: 900;
+            letter-spacing: -0.5px;
+            background: linear-gradient(135deg, var(--accent), var(--purple));
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+            animation: slideInLeft 0.6s cubic-bezier(0.4, 0, 0.2, 1);
+            transition: all 0.4s ease;
+            display: inline-block;
+        }
+
+        .logo:hover { filter: brightness(1.1); transform: translateX(4px); }
+
+        .header-actions { display: flex; gap: 12px; align-items: center; }
+
+        .toggle, .global-help-btn {
+            background: var(--accent);
+            color: #060d15;
+            padding: 8px 16px;
+            border-radius: 20px;
+            cursor: pointer;
+            font-weight: 600;
+            font-size: 13px;
+            border: none;
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            animation: slideInDown 0.6s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+
+        .global-help-btn {
+            padding: 8px 12px;
+            background: rgba(77, 179, 255, 0.15);
+            color: var(--accent);
+            border: 1px solid rgba(77, 179, 255, 0.3);
+            animation-delay: 0.1s;
+        }
+
+        .toggle:hover, .global-help-btn:hover {
+            transform: translateY(-4px);
+            box-shadow: 0 8px 20px rgba(77, 179, 255, 0.3);
+        }
+
+        .card, .chartCard {
+            background: linear-gradient(135deg, var(--card), rgba(30, 40, 50, 0.5));
+            padding: 24px;
+            border-radius: 12px;
+            border: 1px solid var(--border);
+            box-shadow: 0 8px 24px rgba(0, 0, 0, 0.12);
+            opacity: 0;
+            transform: translateY(20px);
+            transition: all 0.6s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+
+        body.light .card, body.light .chartCard {
+            background: #ffffff;
+            border: 1.5px solid #d0dce6;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.08), 0 4px 12px rgba(0,0,0,0.06);
+        }
+
+        .card.show, .chartCard.show { opacity: 1; transform: translateY(0); }
+
+        .card:hover, .chartCard:hover {
+            transform: translateY(-8px);
+            box-shadow: 0 16px 40px rgba(0, 0, 0, 0.2);
+            border-color: var(--accent);
+        }
+
+        .card-title {
+            font-size: 18px;
+            font-weight: 700;
+            margin-bottom: 18px;
+            color: var(--text);
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            letter-spacing: -0.3px;
+        }
+
+        .card-icon { font-size: 22px; display: inline-flex; }
+
+        .grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 16px;
+        }
+
+        @media (max-width: 768px) {
+            .grid { grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 12px; }
+        }
+
+        .field { display: flex; flex-direction: column; gap: 6px; }
+        .field-wrapper { display: flex; flex-direction: column; gap: 4px; }
+        .field-label-row { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+
+        label {
+            font-size: 11px;
+            color: var(--muted);
+            font-weight: 600;
+            letter-spacing: 0.3px;
+            text-transform: uppercase;
+            display: flex;
+            justify-content: space-between;
+            align-items: baseline;
+            flex: 1;
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+
+        label:hover { color: var(--accent); }
+        body.light label { color: #374151; }
+        body.light label:hover { color: #1e40af; }
+
+        .label-value {
+            font-size: 12px;
+            color: var(--accent);
+            font-weight: 700;
+            font-family: 'Courier New', monospace;
+            transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+
+        .info-btn {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            width: 18px;
+            height: 18px;
+            border-radius: 50%;
+            background: rgba(77, 179, 255, 0.15);
+            color: var(--accent);
+            font-size: 11px;
+            font-weight: bold;
+            cursor: help;
+            border: 1px solid rgba(77, 179, 255, 0.3);
+            transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+            flex-shrink: 0;
+        }
+
+        .info-btn:hover {
+            background: rgba(77, 179, 255, 0.3);
+            border-color: var(--accent);
+            transform: scale(1.35) rotate(180deg);
+            box-shadow: 0 6px 16px rgba(77, 179, 255, 0.25);
+        }
+
+        .input-group { display: flex; flex-direction: column; gap: 8px; }
+
+        input[type="text"], input[type="number"] {
+            padding: 10px 12px;
+            border-radius: 8px;
+            border: 1.5px solid var(--border);
+            background: rgba(10, 24, 38, 0.5);
+            color: var(--text);
+            font-weight: 600;
+            font-family: 'Courier New', monospace;
+            font-size: 13px;
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+
+        body.light input[type="text"], body.light input[type="number"] {
+            background: #f9fafb;
+            border: 1.5px solid #d1d5db;
+            color: #0f172a;
+        }
+
+        input[type="text"]:focus, input[type="number"]:focus {
+            outline: none;
+            border-color: var(--accent);
+            background: var(--card);
+            box-shadow: 0 0 0 4px rgba(77, 179, 255, 0.15), 0 4px 12px rgba(77, 179, 255, 0.1);
+            transform: translateY(-1px);
+        }
+
+        input[type="range"] {
+            width: 100%;
+            height: 4px;
+            border-radius: 2px;
+            background: linear-gradient(to right, var(--border), var(--border));
+            outline: none;
+            -webkit-appearance: none;
+            appearance: none;
+            cursor: grab;
+            padding: 8px 0;
+            pointer-events: none;
+            transition: background 0.3s ease;
+        }
+
+        input[type="range"]::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            appearance: none;
+            width: 18px;
+            height: 18px;
+            border-radius: 50%;
+            background: var(--accent);
+            cursor: grab;
+            pointer-events: auto;
+            box-shadow: 0 2px 8px rgba(77, 179, 255, 0.3);
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            border: 2px solid var(--card);
+        }
+
+        input[type="range"]::-moz-range-thumb {
+            width: 18px;
+            height: 18px;
+            border-radius: 50%;
+            background: var(--accent);
+            cursor: grab;
+            border: 2px solid var(--card);
+            box-shadow: 0 2px 8px rgba(77, 179, 255, 0.3);
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+
+        .help-text, .field-hint, .section-description { display: none; }
+
+        .gauge-section { text-align: center; padding: 16px 0; }
+        .gaugeWrap { display: flex; justify-content: center; margin: 16px 0; }
+
+        .gauge {
+            width: 220px;
+            height: 220px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: all 1.2s cubic-bezier(0.4, 0, 0.2, 1);
+            box-shadow: 0 0 32px rgba(77, 179, 255, 0.2);
+            position: relative;
+            background: conic-gradient(#4db3ff 0deg, #9b59b6 360deg);
+        }
+
+        .gaugeInner {
+            width: 185px;
+            height: 185px;
+            border-radius: 50%;
+            background: var(--card);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            flex-direction: column;
+            font-size: 44px;
+            font-weight: 900;
+            box-shadow: inset 0 4px 12px rgba(0, 0, 0, 0.2);
+        }
+
+        .gauge-label { font-size: 11px; color: var(--muted); font-weight: 600; text-transform: uppercase; letter-spacing: 0.4px; margin-top: 6px; }
+        .gauge-interpretation { font-size: 14px; margin-top: 18px; color: var(--muted); line-height: 1.6; min-height: 48px; font-weight: 500; }
+
+        .metricsBox {
+            margin-top: 20px;
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+            gap: 12px;
+        }
+
+        .metric-card {
+            background: rgba(77, 179, 255, 0.08);
+            padding: 14px;
+            border-radius: 10px;
+            border: 1px solid rgba(77, 179, 255, 0.15);
+            transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+            cursor: pointer;
+        }
+
+        .metric-card:hover {
+            background: rgba(77, 179, 255, 0.15);
+            border-color: var(--accent);
+            transform: translateY(-6px);
+            box-shadow: 0 8px 24px rgba(77, 179, 255, 0.2);
+        }
+
+        .metric-label { font-size: 10px; color: var(--muted); font-weight: 600; text-transform: uppercase; letter-spacing: 0.2px; margin-bottom: 8px; }
+        .metric-value { font-size: 22px; font-weight: 900; color: var(--accent); letter-spacing: -0.5px; font-family: 'Courier New', monospace; }
+
+        .chartCard { position: relative; }
+
+        .chart-container { position: relative; height: 380px; margin-top: 12px; }
+
+        canvas { max-height: 100% !important; }
+
+        .chart-description {
+            font-size: 12px;
+            color: var(--muted);
+            margin-top: 12px;
+            padding-top: 10px;
+            border-top: 1px solid var(--border);
+            line-height: 1.6;
+        }
+
+        .charts-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(580px, 1fr));
+            gap: 20px;
+        }
+
+        .chart-full { grid-column: 1 / -1; }
+
+        @media (max-width: 1400px) { .charts-grid { grid-template-columns: 1fr; } }
+
+        .comparison-table { width: 100%; margin-top: 16px; border-collapse: collapse; }
+        .comparison-table th {
+            background: rgba(77, 179, 255, 0.08);
+            padding: 12px;
+            text-align: left;
+            font-weight: 600;
+            border-bottom: 2px solid var(--border);
+            font-size: 11px;
+            text-transform: uppercase;
+            color: var(--accent);
+            letter-spacing: 0.2px;
+        }
+        .comparison-table td {
+            padding: 12px;
+            border-bottom: 1px solid var(--border);
+            font-size: 13px;
+            font-weight: 500;
+        }
+        .comparison-table tr:hover { background: rgba(77, 179, 255, 0.06); }
+
+        .metric-positive { color: var(--green); font-weight: 700; }
+        .metric-negative { color: var(--red); font-weight: 700; }
+
+        .section-header {
+            font-size: 13px;
+            font-weight: 700;
+            color: var(--accent);
+            margin-bottom: 14px;
+            text-transform: uppercase;
+            letter-spacing: 0.4px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .divider { height: 1px; background: var(--border); margin: 20px 0; }
+
+        .summary-panel {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+            gap: 12px;
+            padding: 16px;
+            background: rgba(77, 179, 255, 0.05);
+            border-radius: 10px;
+            border: 1px solid var(--border);
+            margin-bottom: 16px;
+        }
+
+        .summary-item { display: flex; flex-direction: column; gap: 4px; padding: 8px; border-radius: 8px; transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1); }
+        .summary-item:hover { background: rgba(77, 179, 255, 0.1); transform: translateY(-2px); }
+        .summary-label { font-size: 10px; color: var(--muted); font-weight: 600; text-transform: uppercase; letter-spacing: 0.2px; }
+        .summary-value { font-size: 15px; font-weight: 700; color: var(--accent); font-family: 'Courier New', monospace; }
+
+        .modal-overlay {
+            display: none;
+            position: fixed;
+            top: 0; left: 0; right: 0; bottom: 0;
+            background: rgba(0, 0, 0, 0.5);
+            z-index: 1000;
+            backdrop-filter: blur(4px);
+        }
+        .modal-overlay.active { display: flex; align-items: center; justify-content: center; }
+
+        .modal-content {
+            background: rgba(var(--card-rgb), 0.95);
+            backdrop-filter: blur(10px) saturate(180%);
+            border: 1px solid rgba(77, 179, 255, 0.2);
+            border-radius: 12px;
+            padding: 28px;
+            max-width: 520px;
+            max-height: 80vh;
+            overflow-y: auto;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+            position: relative;
+        }
+
+        body.light .modal-content { background: rgba(255,255,255,0.98); }
+
+        .modal-close {
+            position: absolute;
+            top: 16px; right: 16px;
+            background: none;
+            border: none;
+            font-size: 24px;
+            cursor: pointer;
+            color: var(--muted);
+            padding: 4px;
+            width: 32px; height: 32px;
+            border-radius: 6px;
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+        .modal-close:hover { color: var(--text); background: rgba(77,179,255,0.1); transform: rotate(90deg); }
+
+        .modal-title { font-size: 18px; font-weight: 700; margin-bottom: 8px; color: var(--text); padding-right: 32px; }
+        .modal-subtitle { font-size: 13px; color: var(--muted); margin-bottom: 16px; line-height: 1.5; }
+        .modal-section { margin-bottom: 16px; }
+        .modal-section-title { font-size: 12px; font-weight: 700; color: var(--accent); text-transform: uppercase; letter-spacing: 0.3px; margin-bottom: 8px; }
+        .modal-text { font-size: 13px; line-height: 1.6; color: var(--text); margin-bottom: 8px; }
+        .modal-example { background: rgba(77,179,255,0.08); padding: 10px; border-radius: 6px; border-left: 3px solid var(--accent); font-size: 12px; color: var(--text); margin-top: 8px; }
+
+        .info-banner {
+            background: rgba(30,64,175,0.08);
+            border: 1px solid rgba(30,64,175,0.2);
+            border-left: 4px solid var(--accent);
+            padding: 12px;
+            border-radius: 6px;
+            margin-top: 12px;
+            font-size: 12px;
+            color: var(--text);
+            line-height: 1.5;
+        }
+
+        .sensitivity-controls {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            margin-bottom: 16px;
+            padding: 12px 16px;
+            background: rgba(77,179,255,0.05);
+            border-radius: 8px;
+            border: 1px solid rgba(77,179,255,0.1);
+        }
+        .sensitivity-label { font-size: 12px; font-weight: 600; color: var(--muted); text-transform: uppercase; letter-spacing: 0.3px; }
+        .sensitivity-chips { display: flex; gap: 8px; flex-wrap: wrap; flex: 1; }
+
+        .sensitivity-chip {
+            padding: 6px 12px;
+            border-radius: 20px;
+            border: 1.5px solid var(--border);
+            background: transparent;
+            color: var(--text);
+            font-size: 12px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+        .sensitivity-chip:hover { border-color: var(--accent); background: rgba(77,179,255,0.1); transform: translateY(-2px); }
+        .sensitivity-chip.active { background: var(--accent); color: #060d15; border-color: var(--accent); }
+
+        .sensitivity-back-btn {
+            padding: 6px 12px;
+            border-radius: 20px;
+            border: 1.5px solid var(--accent);
+            background: transparent;
+            color: var(--accent);
+            font-size: 12px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+        .sensitivity-back-btn:hover { background: var(--accent); color: #060d15; }
+
+        .sensitivity-chart-title { font-size: 16px; font-weight: 700; margin-bottom: 12px; color: var(--text); }
+
+        /* VERDICT BANNER */
+        .verdict-banner {
+            border-radius: 16px;
+            padding: 24px 28px;
+            border: 2px solid transparent;
+            transition: all 0.5s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+        .verdict-banner.lease-wins { background: linear-gradient(135deg, rgba(46,204,113,0.12), rgba(0,212,255,0.08)); border-color: rgba(46,204,113,0.4); }
+        .verdict-banner.rent-wins  { background: linear-gradient(135deg, rgba(255,77,77,0.12), rgba(255,140,58,0.08)); border-color: rgba(255,77,77,0.4); }
+        .verdict-banner.neutral    { background: linear-gradient(135deg, rgba(241,196,15,0.12), rgba(255,140,58,0.08)); border-color: rgba(241,196,15,0.4); }
+
+        .verdict-headline { font-size: 22px; font-weight: 800; letter-spacing: -0.5px; margin-bottom: 10px; line-height: 1.3; }
+        .verdict-body { font-size: 15px; color: var(--muted); line-height: 1.6; max-width: 780px; }
+        .verdict-body strong { color: var(--text); }
+        .verdict-stats { display: flex; gap: 24px; margin-top: 18px; flex-wrap: wrap; }
+        .verdict-stat { display: flex; flex-direction: column; gap: 2px; }
+        .verdict-stat-label { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px; color: var(--muted); }
+        .verdict-stat-value { font-size: 20px; font-weight: 800; font-family: 'Courier New', monospace; }
+        .verdict-stat-value.positive { color: #2ecc71; }
+        .verdict-stat-value.negative { color: #ff4d4d; }
+        .verdict-stat-value.neutral  { color: #f1c40f; }
+        .verdict-divider { width: 1px; background: var(--border); margin: 0 4px; }
+
+        .share-btn {
+            background: rgba(77,179,255,0.15);
+            color: var(--accent);
+            border: 1px solid rgba(77,179,255,0.3);
+            padding: 8px 14px;
+            border-radius: 20px;
+            cursor: pointer;
+            font-weight: 600;
+            font-size: 13px;
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+        .share-btn:hover { background: rgba(77,179,255,0.28); transform: translateY(-2px); box-shadow: 0 6px 16px rgba(77,179,255,0.2); }
+
+        .share-toast {
+            position: fixed;
+            bottom: 24px;
+            left: 50%;
+            transform: translateX(-50%) translateY(80px);
+            background: var(--card);
+            color: var(--text);
+            border: 1px solid var(--accent);
+            padding: 12px 24px;
+            border-radius: 12px;
+            font-weight: 600;
+            font-size: 14px;
+            box-shadow: 0 8px 32px rgba(0,0,0,0.3);
+            z-index: 9999;
+            transition: transform 0.35s cubic-bezier(0.4, 0, 0.2, 1);
+            pointer-events: none;
+        }
+        .share-toast.show { transform: translateX(-50%) translateY(0); }
+
+        @keyframes slideIn { from { opacity:0; transform:translateY(20px); } to { opacity:1; transform:translateY(0); } }
+        .show { animation: slideIn 0.6s cubic-bezier(0.4,0,0.2,1) forwards !important; }
+        @keyframes fadeInChart { from { opacity:0; transform:scale(0.95); } to { opacity:1; transform:scale(1); } }
+        @keyframes slideInLeft { from { opacity:0; transform:translateX(-20px); } to { opacity:1; transform:translateX(0); } }
+        @keyframes slideInDown { from { opacity:0; transform:translateY(-10px); } to { opacity:1; transform:translateY(0); } }
+        @keyframes slideInUp { from { opacity:0; transform:translateY(15px); } to { opacity:1; transform:translateY(0); } }
+
+        .metric-value.updating { animation: valueFlash 0.6s cubic-bezier(0.4,0,0.2,1); }
+        @keyframes valueFlash {
+            0% { background: rgba(77,179,255,0.3); transform: scale(1); }
+            50% { background: rgba(77,179,255,0.15); transform: scale(1.1); }
+            100% { background: transparent; transform: scale(1); }
+        }
+
+        *:focus-visible { outline: 3px dashed var(--accent); outline-offset: 3px; }
+
+        @media (max-width: 768px) {
+            body { padding: 12px; }
+            .container { gap: 14px; display: flex; flex-direction: column; }
+            #verdictCard { order: 1; } #inputCard { order: 2; } #gaugeCard { order: 3; } #chartsSection { order: 4; } #tableCard { order: 5; }
+            #inputsGrid { grid-template-columns: 1fr !important; gap: 16px !important; }
+            .card, .chartCard { padding: 16px; }
+            .gauge { width: 180px; height: 180px; }
+            .gaugeInner { width: 145px; height: 145px; font-size: 36px; }
+            .chart-container { height: 260px; }
+            .header { flex-direction: column; gap: 12px; padding: 12px 0; }
+            .charts-grid { grid-template-columns: 1fr; gap: 14px; }
+            .metricsBox { grid-template-columns: repeat(3, 1fr); gap: 10px; }
+            .summary-panel { grid-template-columns: repeat(2, 1fr); }
+        }
+
+    </style>
+</head>
+
+<body>
+
+<a href="#main-content" class="skip-link">Skip to main content</a>
+
+<div class="header" role="banner">
+    <div class="logo">💰 Aladdin Finance BI</div>
+    <div class="header-actions">
+        <button class="share-btn" onclick="shareScenario()" aria-label="Share this scenario via URL">📤 Share</button>
+        <button class="share-btn" onclick="resetDefaults()" aria-label="Reset all inputs to default values" style="background:rgba(255,77,77,0.12);color:var(--red);border-color:rgba(255,77,77,0.3);" title="Reset to defaults (R)">↺ Reset</button>
+        <button class="global-help-btn" onclick="showGlobalHelp()" aria-label="Show help guide (press ? for keyboard shortcut)">ℹ️ Help <span class="kbd-hint">?</span></button>
+        <button class="toggle" onclick="toggleTheme()" aria-label="Toggle between dark and light theme">
+            <span id="theme-icon">🌙</span> <span id="theme-text">Dark</span>
+        </button>
+    </div>
+</div>
+
+<div class="container" id="main-content">
+
+    <!-- PRESET SCENARIOS -->
+    <div class="presets-bar" role="group" aria-label="Preset scenarios">
+        <span class="presets-label">⚡ Quick Scenarios:</span>
+        <button class="preset-btn" onclick="loadPreset('metro-apartment')" title="2BHK flat in a metro — Bengaluru-style high deposit, 3-year horizon, active investor">🏠 Metro Apartment</button>
+        <button class="preset-btn" onclick="loadPreset('high-street-retail')" title="500 sq ft high-street shop — 5-year lock-in, high fit-out withholding, profitable business">🏪 High-Street Retail</button>
+        <button class="preset-btn" onclick="loadPreset('office-space')" title="2,000 sq ft Grade-B office — 3-year lease vs co-working, growing company">🏢 Office Space</button>
+        <button class="preset-btn" onclick="loadPreset('warehouse')" title="10,000 sq ft logistics warehouse — 5-year lease, NH corridor, high rent growth">🏭 Warehouse / Industrial</button>
+    </div>
+
+    <!-- INPUT PANEL -->
+    <div class="card" id="inputCard">
+        <div class="card-title"><span class="card-icon">⚙️</span>Financial Parameters</div>
+
+        <!-- Validation banners -->
+        <div class="validation-banner error" id="validationErrors" role="alert" aria-live="assertive"></div>
+        <div class="validation-banner warning" id="validationWarnings" role="status" aria-live="polite"></div>
+
+        <div class="summary-panel">
+            <div class="summary-item"><div class="summary-label">Lease Deposit</div><div class="summary-value" id="summaryAsset">₹20L</div></div>
+            <div class="summary-item"><div class="summary-label">Loan Against It</div><div class="summary-value" id="summaryLoan">₹15L</div></div>
+            <div class="summary-item"><div class="summary-label">Own Funds Locked</div><div class="summary-value" id="summaryOwnFunds" style="color:var(--orange)">₹5L</div></div>
+            <div class="summary-item"><div class="summary-label">Equivalent Rent</div><div class="summary-value" id="summaryRent">₹45K</div></div>
+            <div class="summary-item"><div class="summary-label">Lease Term</div><div class="summary-value" id="summaryTerm">2 yrs</div></div>
+        </div>
+
+        <div id="inputsGrid" style="display:grid;grid-template-columns:1fr 1fr;gap:24px;margin-top:12px;">
+
+            <div>
+                <button class="section-toggle" onclick="toggleSection(this,'leaseBody')" aria-expanded="true" aria-controls="leaseBody">
+                    <span><span>📋</span> Lease Components</span>
+                    <span class="toggle-arrow">▼</span>
+                </button>
+                <div class="collapsible-body" id="leaseBody" style="margin-top:14px;">
+
+                <!-- Own-funds indicator — derived live from deposit minus loan -->
+                <div id="ownFundsBadge" style="
+                    display:flex; align-items:center; gap:10px; padding:10px 14px;
+                    background:rgba(255,140,58,0.08); border:1px solid rgba(255,140,58,0.25);
+                    border-radius:8px; margin-bottom:14px; flex-wrap:wrap;">
+                    <span style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:0.4px;color:var(--orange);">💰 Your Own Funds Locked In</span>
+                    <span id="ownFundsValue" style="font-size:18px;font-weight:900;font-family:'Courier New',monospace;color:var(--orange);">₹5,00,000</span>
+                    <span style="font-size:11px;color:var(--muted);flex:1;">— this capital earns nothing while tied up. The opportunity cost on this is your biggest hidden lease cost.</span>
+                </div>
+
+                <div class="grid">
+                    <div class="field"><div class="field-wrapper">
+                        <div class="field-label-row"><label>Lease Deposit (₹) <span class="label-value" id="leaseAmountLabel">₹20,00,000</span></label><button class="info-btn" aria-label="Help for Lease Deposit" onclick="showFieldHelp('leaseAmount')">ℹ</button></div>
+                        <div style="font-size:10px;color:var(--muted);margin-bottom:4px;">Total security deposit paid upfront — loan + your own money</div>
+                        <div class="input-group"><input id="leaseAmount" type="text" value="2000000"><input type="range" id="leaseAmountRange" aria-label="Total lease deposit in rupees" aria-valuemin="100000" aria-valuemax="10000000" aria-valuenow="2000000" min="100000" max="10000000" step="50000" value="2000000"></div>
+                    </div></div>
+
+                    <div class="field"><div class="field-wrapper">
+                        <div class="field-label-row"><label>Loan Against Deposit (₹) <span class="label-value" id="loanAmountLabel">₹15,00,000</span></label><button class="info-btn" aria-label="Help for Loan Against Deposit" onclick="showFieldHelp('loanAmount')">ℹ</button></div>
+                        <div style="font-size:10px;color:var(--muted);margin-bottom:4px;">Borrowed portion — enter 0 if fully self-funded</div>
+                        <div class="input-group"><input id="loanAmount" type="text" value="1500000"><input type="range" id="loanAmountRange" aria-label="Loan against deposit in rupees" aria-valuemin="0" aria-valuemax="10000000" aria-valuenow="1500000" min="0" max="10000000" step="50000" value="1500000"></div>
+                    </div></div>
+
+                    <div class="field"><div class="field-wrapper">
+                        <div class="field-label-row"><label>Interest Rate (%) <span class="label-value" id="loanRateLabel">8.5%</span></label><button class="info-btn" aria-label="Help for Interest Rate" onclick="showFieldHelp('loanRate')">ℹ</button></div>
+                        <div class="input-group"><input id="loanRate" type="text" value="8.5"><input type="range" id="loanRateRange" aria-label="Loan interest rate percent" aria-valuemin="1" aria-valuemax="20" aria-valuenow="8.5" min="1" max="20" step="0.1" value="8.5"></div>
+                    </div></div>
+
+                    <div class="field"><div class="field-wrapper">
+                        <div class="field-label-row"><label>Maintenance (₹) <span class="label-value" id="maintenanceLabel">₹5,000</span></label><button class="info-btn" aria-label="Help for Maintenance" onclick="showFieldHelp('maintenance')">ℹ</button></div>
+                        <div class="input-group"><input id="maintenance" type="text" value="5000"><input type="range" id="maintenanceRange" aria-label="Monthly maintenance cost" aria-valuemin="0" aria-valuemax="20000" aria-valuenow="5000" min="0" max="20000" step="500" value="5000"></div>
+                    </div></div>
+
+                    <div class="field"><div class="field-wrapper">
+                        <div class="field-label-row"><label>Withholding (%) <span class="label-value" id="withholdingLabel">0%</span></label><button class="info-btn" aria-label="Help for Withholding" onclick="showFieldHelp('withholding')">ℹ</button></div>
+                        <div class="input-group"><input id="withholding" type="text" value="0"><input type="range" id="withholdingRange" aria-label="Withholding percent" aria-valuemin="0" aria-valuemax="30" aria-valuenow="0" min="0" max="30" step="0.5" value="0"></div>
+                    </div></div>
+
+                    <div class="field"><div class="field-wrapper">
+                        <div class="field-label-row"><label>Refund Delay (Mo) <span class="label-value" id="refundDelayLabel">0</span></label><button class="info-btn" aria-label="Help for Refund Delay" onclick="showFieldHelp('refundDelay')">ℹ</button></div>
+                        <div class="input-group"><input id="refundDelay" type="text" value="0"><input type="range" id="refundDelayRange" aria-label="Refund delay in months" aria-valuemin="0" aria-valuemax="24" aria-valuenow="0" min="0" max="24" step="1" value="0"></div>
+                    </div></div>
+                </div>
+                </div><!-- end leaseBody -->
+            </div>
+
+            <div>
+                <button class="section-toggle" onclick="toggleSection(this,'rentBody')" aria-expanded="true" aria-controls="rentBody">
+                    <span><span>🏠</span> Rent Components</span>
+                    <span class="toggle-arrow">▼</span>
+                </button>
+                <div class="collapsible-body" id="rentBody" style="margin-top:14px;">
+                <div class="grid">
+                    <div class="field"><div class="field-wrapper">
+                        <div class="field-label-row"><label>Market Rent (₹) <span class="label-value" id="marketRentLabel">₹45,000</span></label><button class="info-btn" aria-label="Help for Market Rent" onclick="showFieldHelp('marketRent')">ℹ</button></div>
+                        <div class="input-group"><input id="marketRent" type="text" value="45000"><input type="range" id="marketRentRange" aria-label="Market rent amount" aria-valuemin="5000" aria-valuemax="200000" aria-valuenow="45000" min="5000" max="200000" step="1000" value="45000"></div>
+                    </div></div>
+
+                    <div class="field"><div class="field-wrapper">
+                        <div class="field-label-row"><label>Rent Deposit (₹) <span class="label-value" id="rentDepositLabel">₹0</span></label><button class="info-btn" aria-label="Help for Rent Deposit" onclick="showFieldHelp('rentDeposit')">ℹ</button></div>
+                        <div class="input-group"><input id="rentDeposit" type="text" value="0"><input type="range" id="rentDepositRange" aria-label="Rent deposit amount" aria-valuemin="0" aria-valuemax="500000" aria-valuenow="0" min="0" max="500000" step="10000" value="0"></div>
+                    </div></div>
+
+                    <div class="field"><div class="field-wrapper">
+                        <div class="field-label-row"><label>Refund Delay (Mo) <span class="label-value" id="depositRefundDelayLabel">0</span></label><button class="info-btn" aria-label="Help for Deposit Refund Delay" onclick="showFieldHelp('depositRefundDelay')">ℹ</button></div>
+                        <div class="input-group"><input id="depositRefundDelay" type="text" value="0"><input type="range" id="depositRefundDelayRange" aria-label="Deposit refund delay in months" aria-valuemin="0" aria-valuemax="24" aria-valuenow="0" min="0" max="24" step="1" value="0"></div>
+                    </div></div>
+
+                    <div class="field"><div class="field-wrapper">
+                        <div class="field-label-row"><label>Rent Growth (%) <span class="label-value" id="rentIncrementLabel">5%</span></label><button class="info-btn" aria-label="Help for Rent Growth" onclick="showFieldHelp('rentIncrement')">ℹ</button></div>
+                        <div class="input-group"><input id="rentIncrement" type="text" value="5"><input type="range" id="rentIncrementRange" aria-label="Annual rent growth percent" aria-valuemin="0" aria-valuemax="10" aria-valuenow="5" min="0" max="10" step="0.5" value="5"></div>
+                    </div></div>
+
+                    <div class="field"><div class="field-wrapper">
+                        <div class="field-label-row"><label>Flexibility Value (₹/mo) <span class="label-value" id="flexibilityPremiumLabel">₹0</span></label><button class="info-btn" aria-label="Help for Flexibility Premium" onclick="showFieldHelp('flexibilityPremium')">ℹ</button></div>
+                        <div class="input-group"><input id="flexibilityPremium" type="text" value="0"><input type="range" id="flexibilityPremiumRange" aria-label="Monthly flexibility value" aria-valuemin="0" aria-valuemax="20000" aria-valuenow="0" min="0" max="20000" step="500" value="0"></div>
+                    </div></div>
+                </div>
+                </div><!-- end rentBody -->
+            </div>
+
+        </div>
+
+        <div class="divider"></div>
+        <div>
+            <button class="section-toggle" onclick="toggleSection(this,'econBody')" aria-expanded="true" aria-controls="econBody">
+                <span><span>⚖️</span> Economic Assumptions</span>
+                <span class="toggle-arrow">▼</span>
+            </button>
+            <div class="collapsible-body" id="econBody" style="margin-top:14px;">
+            <div class="grid">
+                <div class="field"><div class="field-wrapper">
+                    <div class="field-label-row"><label>Lease Tenure (Mo) <span class="label-value" id="leaseTenureLabel">24</span></label><button class="info-btn" aria-label="Help for Lease Tenure" onclick="showFieldHelp('leaseTenure')">ℹ</button></div>
+                    <div class="input-group"><input id="leaseTenure" type="text" value="24"><input type="range" id="leaseTenureRange" aria-label="Lease tenure in months" aria-valuemin="12" aria-valuemax="360" aria-valuenow="24" min="12" max="360" step="12" value="24"></div>
+                </div></div>
+
+                <div class="field"><div class="field-wrapper">
+                    <div class="field-label-row"><label>Loan Tenure (Mo) <span class="label-value" id="loanTenureLabel">24</span></label><button class="info-btn" aria-label="Help for Loan Tenure" onclick="showFieldHelp('loanTenure')">ℹ</button></div>
+                    <div class="input-group"><input id="loanTenure" type="text" value="24"><input type="range" id="loanTenureRange" aria-label="Loan tenure in months" aria-valuemin="12" aria-valuemax="360" aria-valuenow="24" min="12" max="360" step="12" value="24"></div>
+                </div></div>
+
+                <div class="field"><div class="field-wrapper">
+                    <div class="field-label-row"><label>Opportunity Cost (%) <span class="label-value" id="oppRateLabel">12%</span></label><button class="info-btn" aria-label="Help for Opportunity Cost" onclick="showFieldHelp('oppRate')">ℹ</button></div>
+                    <div class="input-group"><input id="oppRate" type="text" value="12"><input type="range" id="oppRateRange" aria-label="Opportunity cost rate percent" aria-valuemin="1" aria-valuemax="20" aria-valuenow="12" min="1" max="20" step="0.1" value="12"></div>
+                </div></div>
+
+                <div class="field"><div class="field-wrapper">
+                    <div class="field-label-row"><label>Net Lease Risk (%) <span class="label-value" id="riskPremiumLabel">1.5%</span></label><button class="info-btn" aria-label="Help for Net Lease Risk" onclick="showFieldHelp('riskPremium')">ℹ</button></div>
+                    <div class="input-group"><input id="riskPremium" type="text" value="1.5"><input type="range" id="riskPremiumRange" aria-label="Net lease risk premium percent" aria-valuemin="0" aria-valuemax="10" aria-valuenow="1.5" min="0" max="10" step="0.1" value="1.5"></div>
+                </div></div>
+
+                <div class="field"><div class="field-wrapper">
+                    <div class="field-label-row"><label>Inflation Rate (%) <span class="label-value" id="inflationRateLabel">6%</span></label><button class="info-btn" aria-label="Help for Inflation Rate" onclick="showFieldHelp('inflationRate')">ℹ</button></div>
+                    <div class="input-group"><input id="inflationRate" type="text" value="6"><input type="range" id="inflationRateRange" aria-label="Inflation rate percent" aria-valuemin="0" aria-valuemax="15" aria-valuenow="6" min="0" max="15" step="0.5" value="6"></div>
+                </div></div>
+
+                <div class="field"><div class="field-wrapper">
+                    <div class="field-label-row"><label>Liquidity Premium (%) <span class="label-value" id="liquidityPremiumLabel">2%</span></label><button class="info-btn" aria-label="Help for Liquidity Premium" onclick="showFieldHelp('liquidityPremium')">ℹ</button></div>
+                    <div class="input-group"><input id="liquidityPremium" type="text" value="2"><input type="range" id="liquidityPremiumRange" aria-label="Liquidity premium percent" aria-valuemin="0" aria-valuemax="10" aria-valuenow="2" min="0" max="10" step="0.5" value="2"></div>
+                </div></div>
+
+                <div class="field"><div class="field-wrapper">
+                    <div class="field-label-row"><label>Return Volatility (%) <span class="label-value" id="returnVolLabel">15%</span></label><button class="info-btn" aria-label="Help for Return Volatility" onclick="showFieldHelp('returnVol')">ℹ</button></div>
+                    <div class="input-group"><input id="returnVol" type="text" value="15"><input type="range" id="returnVolRange" aria-label="Return volatility percent" aria-valuemin="0" aria-valuemax="40" aria-valuenow="15" min="0" max="40" step="1" value="15"></div>
+                </div></div>
+            </div>
+            </div><!-- end econBody -->
+        </div>
+    </div>
+
+    <!-- VERDICT BANNER -->
+    <div class="card" id="verdictCard" style="padding:0;overflow:hidden;">
+        <div class="verdict-banner neutral" id="verdictBanner" role="status" aria-live="polite" aria-atomic="true">
+            <div class="verdict-headline" id="verdictHeadline">⏳ Analyzing your inputs...</div>
+            <div class="verdict-body" id="verdictBody">Enter your financial parameters above to receive a clear recommendation.</div>
+            <div class="verdict-stats">
+                <div class="verdict-stat">
+                    <div class="verdict-stat-label">Monthly Savings</div>
+                    <div class="verdict-stat-value neutral" id="verdictMonthlySaving">—</div>
+                </div>
+                <div class="verdict-divider"></div>
+                <div class="verdict-stat">
+                    <div class="verdict-stat-label">Total Term Savings</div>
+                    <div class="verdict-stat-value neutral" id="verdictTermSaving">—</div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- DECISION GAUGE & KPIs -->
+    <div class="card" id="gaugeCard">
+        <div class="card-title"><span class="card-icon">📊</span>Decision Intelligence Score</div>
+        <div class="gauge-section">
+            <div class="gaugeWrap">
+                <div id="gauge" class="gauge" role="meter" aria-label="Decision score gauge" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0">
+                    <div class="gaugeInner"><span id="dial">0</span><div class="gauge-label">Score</div></div>
+                </div>
+            </div>
+            <div class="gauge-interpretation" id="interpretation">Analyzing parameters...</div>
+        </div>
+        <div class="metricsBox" role="list" aria-label="Key financial metrics">
+            <div class="metric-card" role="listitem"><div class="metric-label">Monthly EMI</div><div id="mEMI" class="metric-value">₹0</div></div>
+            <div class="metric-card" role="listitem"><div class="metric-label">Maintenance</div><div id="mMaintenance" class="metric-value">₹0</div></div>
+            <div class="metric-card" role="listitem"><div class="metric-label">Monthly Gain <span id="mSaveDir" class="dir-indicator" aria-hidden="true"></span></div><div id="mSave" class="metric-value">₹0</div></div>
+            <div class="metric-card" role="listitem"><div class="metric-label">Annual Gain <span id="ySaveDir" class="dir-indicator" aria-hidden="true"></span></div><div id="ySave" class="metric-value">₹0</div></div>
+            <div class="metric-card" role="listitem"><div class="metric-label">Term Gain <span id="tSaveDir" class="dir-indicator" aria-hidden="true"></span></div><div id="tSave" class="metric-value">₹0</div></div>
+            <div class="metric-card" role="listitem"><div class="metric-label">Effective Cost</div><div id="mEffective" class="metric-value">₹0</div></div>
+            <div class="metric-card" role="listitem"><div class="metric-label">Confidence</div><div id="confidence" class="metric-value">0%</div></div>
+        </div>
+    </div>
+
+    <!-- CHARTS SECTION -->
+    <div class="charts-grid" id="chartsSection">
+
+        <div style="grid-column:1/-1;margin-bottom:12px;">
+            <div class="info-banner" style="margin:0;">
+                <strong>📊 About the Charts:</strong> <strong>TCO Chart</strong> shows cost components. <strong>Monthly Comparison</strong> compares direct outflows. <strong>Cumulative Impact</strong> shows total spending over time. Study the spread between lease and rent lines.
+            </div>
+        </div>
+
+        <div class="chartCard">
+            <div class="card-title"><span class="card-icon">💾</span>Total Economic Cost Drivers</div>
+            <div class="chart-container"><canvas id="tcoChart"></canvas></div>
+            <div class="chart-description">All lease cost components: interest, opportunity costs, maintenance, withholding, and delays.</div>
+        </div>
+
+        <div class="chartCard">
+            <div class="card-title"><span class="card-icon">💰</span>Monthly Cost Comparison</div>
+            <div class="chart-container"><canvas id="monthlyCostChart"></canvas></div>
+            <div class="chart-description">Direct comparison of monthly outflows: risk-adjusted lease cost vs. market rent.</div>
+        </div>
+
+        <div class="chartCard chart-full">
+            <div class="card-title"><span class="card-icon">📈</span>Cumulative Cost Impact Over Time</div>
+            <div class="chart-container"><canvas id="cumulativeImpactChart"></canvas></div>
+            <div class="chart-description">Total accumulated costs. The spread between lines is your financial advantage.</div>
+        </div>
+
+        <div class="chartCard">
+            <div class="card-title"><span class="card-icon">🔥</span>Decision Robustness Matrix</div>
+            <div class="chart-container"><canvas id="sensitivityChart"></canvas></div>
+            <div class="chart-description">How does the outcome change with rent variations? Red = Lease advantage. Axis shows rent change %.</div>
+        </div>
+
+        <div class="chartCard">
+            <div class="card-title"><span class="card-icon">🥧</span>Economic Cost Distribution</div>
+            <div class="chart-container"><canvas id="costCompositionChart"></canvas></div>
+            <div class="chart-description">Which cost categories dominate: Interest, Opportunity costs, Maintenance, Withholding, Delays, Net Lease Risk.</div>
+        </div>
+
+        <div class="chartCard">
+            <div class="card-title"><span class="card-icon">📊</span>Rent Growth vs Fixed Lease</div>
+            <div id="rentInsightBar" style="display:flex;flex-wrap:wrap;gap:10px;margin-bottom:16px;">
+                <div style="background:rgba(46,204,113,0.12);border:1px solid rgba(46,204,113,0.3);border-radius:8px;padding:8px 14px;flex:1;min-width:120px;">
+                    <div style="font-size:10px;font-weight:700;text-transform:uppercase;color:var(--green);margin-bottom:4px;">Monthly Saving (M1)</div>
+                    <div id="rentStatMonthly" style="font-size:18px;font-weight:800;font-family:'Courier New',monospace;color:var(--text);">—</div>
+                </div>
+                <div style="background:rgba(77,179,255,0.1);border:1px solid rgba(77,179,255,0.25);border-radius:8px;padding:8px 14px;flex:1;min-width:120px;">
+                    <div style="font-size:10px;font-weight:700;text-transform:uppercase;color:var(--accent);margin-bottom:4px;">Cumulative Saving (Total)</div>
+                    <div id="rentStatCumulative" style="font-size:18px;font-weight:800;font-family:'Courier New',monospace;color:var(--text);">—</div>
+                </div>
+                <div style="background:rgba(155,89,182,0.1);border:1px solid rgba(155,89,182,0.25);border-radius:8px;padding:8px 14px;flex:1;min-width:120px;">
+                    <div style="font-size:10px;font-weight:700;text-transform:uppercase;color:var(--purple);margin-bottom:4px;">Saving at Final Month</div>
+                    <div id="rentStatFinal" style="font-size:18px;font-weight:800;font-family:'Courier New',monospace;color:var(--text);">—</div>
+                </div>
+                <div id="rentCrossoverPill" style="background:rgba(241,196,15,0.1);border:1px solid rgba(241,196,15,0.25);border-radius:8px;padding:8px 14px;flex:1;min-width:120px;display:none;">
+                    <div style="font-size:10px;font-weight:700;text-transform:uppercase;color:var(--amber);margin-bottom:4px;">Rent Overtakes Lease At</div>
+                    <div id="rentStatCrossover" style="font-size:18px;font-weight:800;font-family:'Courier New',monospace;color:var(--text);">—</div>
+                </div>
+            </div>
+            <div class="chart-container"><canvas id="rentProjectionChart"></canvas></div>
+            <div class="chart-description">Green fill = monthly saving zone where leasing costs less than renting. Right axis tracks cumulative net savings.</div>
+        </div>
+
+        <div class="chartCard">
+            <div class="card-title"><span class="card-icon">🎯</span><span id="sensitivityTitle">What Changes Your Monthly Savings Most</span></div>
+
+            <div id="sensitivityOverviewMode">
+                <div class="sensitivity-controls">
+                    <span class="sensitivity-label">Explore Factor:</span>
+                    <div class="sensitivity-chips">
+                        <button class="sensitivity-chip" onclick="switchSensitivityMode('Market Rent')">Market Rent</button>
+                        <button class="sensitivity-chip" onclick="switchSensitivityMode('Interest Rate')">Interest Rate</button>
+                        <button class="sensitivity-chip" onclick="switchSensitivityMode('Loan Amount')">Loan Amount</button>
+                        <button class="sensitivity-chip" onclick="switchSensitivityMode('Maintenance')">Maintenance</button>
+                        <button class="sensitivity-chip" onclick="switchSensitivityMode('Rent Growth')">Rent Growth</button>
+                    </div>
+                </div>
+                <div class="chart-description" style="margin-bottom:12px;">Right = more savings, Left = less savings. Based on ±10% change.</div>
+            </div>
+
+            <div id="sensitivityInteractiveMode" style="display:none;">
+                <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;">
+                    <span class="sensitivity-chart-title" id="interactiveTitle"></span>
+                    <button class="sensitivity-back-btn" onclick="switchSensitivityMode()">← Back to Overview</button>
+                </div>
+            </div>
+
+            <div class="chart-container"><canvas id="sensitivityHeatmapChart"></canvas></div>
+        </div>
+
+        <div class="chartCard chart-full">
+            <div class="card-title"><span class="card-icon">📊</span>Loan Payment Breakdown Over Time</div>
+            <div class="chart-container"><canvas id="amortizationChart"></canvas></div>
+            <div class="chart-description">Stacked bars show principal vs. interest portions of each EMI. Line shows remaining loan balance declining over time.</div>
+        </div>
+
+    </div>
+
+    <!-- COMPARISON TABLE -->
+    <div class="card" id="tableCard">
+        <div class="card-title"><span class="card-icon">📋</span>Financial Summary</div>
+        <table class="comparison-table">
+            <thead>
+                <tr><th>Metric</th><th>Lease (Economic Cost)</th><th>Market Rent</th><th>Advantage</th></tr>
+            </thead>
+            <tbody id="comparisonBody"></tbody>
+        </table>
+    </div>
+
+</div>
+
+<!-- HELP MODAL -->
+<div class="modal-overlay" id="helpModal" onclick="closeHelpModal(event)">
+    <div class="modal-content" onclick="event.stopPropagation()">
+        <button class="modal-close" onclick="closeHelpModal()">✕</button>
+        <div id="helpContent"></div>
+    </div>
+</div>
+
+<div class="share-toast" id="shareToast">✅ Link copied to clipboard!</div>
+
+<script>
+Chart.register(window['ChartDataLabels']);
+
+/* ================= SHARE / LOAD FROM URL ================= */
+const SHARE_PARAMS = [
+    'leaseAmount','loanAmount','loanRate','loanTenure','leaseTenure',
+    'maintenance','withholding','refundDelay',
+    'marketRent','rentDeposit','depositRefundDelay','rentIncrement','flexibilityPremium',
+    'oppRate','riskPremium','inflationRate','liquidityPremium','returnVol'
+];
+
+function shareScenario() {
+    const params = new URLSearchParams();
+    SHARE_PARAMS.forEach(id => { const el = document.getElementById(id); if (el) params.set(id, el.value); });
+    const url = window.location.origin + window.location.pathname + '?' + params.toString();
+    navigator.clipboard.writeText(url).then(() => {
+        const toast = document.getElementById('shareToast');
+        toast.classList.add('show');
+        setTimeout(() => toast.classList.remove('show'), 2800);
+    }).catch(() => { prompt('Copy this link:', url); });
+}
+
+function loadFromURL() {
+    const params = new URLSearchParams(window.location.search);
+    SHARE_PARAMS.forEach(id => {
+        if (params.has(id)) {
+            const el = document.getElementById(id);
+            const rangeEl = document.getElementById(id + 'Range');
+            if (el) el.value = params.get(id);
+            if (rangeEl) rangeEl.value = params.get(id);
+        }
+    });
+}
+
+/* ================= THEME ================= */
+function toggleTheme() {
+    const isDark = !document.body.classList.contains('light');
+    document.body.classList.toggle('light');
+    localStorage.setItem('theme', isDark ? 'light' : 'dark');
+    updateThemeUI();
+    setTimeout(() => {
+        const colors = getChartColors();
+        [tcoChart, monthlyCostChart, cumulativeImpactChart, sensitivityChart,
+         costCompositionChart, rentProjectionChart, sensitivityHeatmapChart, amortizationChart]
+        .forEach(c => { if (c) c.update(); });
+    }, 100);
+}
+
+function updateThemeUI() {
+    const isDark = !document.body.classList.contains('light');
+    document.getElementById('theme-icon').textContent = isDark ? '🌙' : '☀️';
+    document.getElementById('theme-text').textContent = isDark ? 'Dark' : 'Light';
+}
+
+if (localStorage.getItem('theme') === 'light') { document.body.classList.add('light'); updateThemeUI(); }
+
+/* ================= SCROLL REVEAL ================= */
+const observer = new IntersectionObserver(entries => {
+    entries.forEach(e => { if (e.isIntersecting) e.target.classList.add('show'); });
+}, { threshold: 0.1 });
+document.querySelectorAll('.card, .chartCard').forEach(el => observer.observe(el));
+
+/* ================= HELPERS ================= */
+const $ = id => document.getElementById(id);
+
+function cleanNumber(v) { return parseFloat((v || '').replace(/[,%\s₹]/g, '')) || 0; }
+function num(id) { const val = cleanNumber($(id).value); return isNaN(val) ? 0 : val; }
+function formatINR(n) { n = Math.max(0, Number(n) || 0); return '₹' + Math.round(n).toLocaleString('en-IN'); }
+function formatPercent(n) { n = Number(n) || 0; return Number(n).toLocaleString('en-IN', { maximumFractionDigits: 2 }) + '%'; }
+
+function getChartColors() {
+    const isDark = !document.body.classList.contains('light');
+    return {
+        text: isDark ? '#eaf2f9' : '#0b1622',
+        muted: isDark ? '#94a8bd' : '#5c6c7a',
+        border: isDark ? '#1a2a38' : '#e0e8f0',
+        card: isDark ? '#0e1a27' : '#ffffff',
+        primary: '#4db3ff', secondary: '#9b59b6', success: '#2ecc71',
+        danger: '#ff4d4d', warning: '#f1c40f', cyan: '#00d4ff', orange: '#ff8c3a'
+    };
+}
+
+/* ================= HELP MODAL ================= */
+const fieldHelp = {
+    leaseAmount: {
+        title: 'Lease Deposit',
+        subtitle: 'The total security deposit you pay upfront to the lessor — your own money plus any loan. This is NOT the property\'s market value.',
+        sections: [
+            { title: 'What it is', text: 'In a lease arrangement, you hand over a large refundable deposit to the lessor instead of paying monthly rent. This field is that total deposit amount — the sum of whatever you borrowed (loan) plus what you put in from your own savings. The model charges you cost on this locked capital for the entire lease term.' },
+            { title: 'Common mistake — DO NOT enter property value', text: 'This is the most frequent error. If a flat is worth ₹80L and the lessor asks for a ₹15L deposit, enter ₹15L here — not ₹80L. Entering the property value overstates all costs by 5× and produces completely wrong results.' },
+            { title: 'Residential property', text: 'Metro residential lease deposits in India typically range from ₹8L–₹30L depending on the city, locality, and flat size. Bengaluru is on the higher end (often 2–3 years of equivalent rent as deposit). Mumbai and Delhi leases are less common and deposits are smaller.' },
+            { title: 'Retail / shop space', text: 'Shop lease deposits range from ₹10L–₹80L depending on location and size. A prime MG Road shop commanding ₹1L/month rent might require a ₹40–60L deposit. A smaller suburban shop may ask ₹10–20L. Get the actual deposit demand in writing before entering.' },
+            { title: 'Office / workspace', text: 'Office lease deposits are typically 6–24 months of equivalent rent. A 2,000 sq ft office at ₹1.5L/month might carry a ₹20–30L deposit. Institutional landlords (IT parks, REITs) quote deposits more predictably than individual landlords.' },
+            { title: 'Industrial / warehouse', text: 'Warehouse deposits range from ₹20L–₹2Cr depending on size. A 5,000 sq ft warehouse at ₹1.5L/month rent might require ₹30–50L deposit. Purpose-built cold-storage or specialised facilities have higher deposits.' },
+            { title: 'Example', example: 'Flat worth ₹1Cr, lessor demands ₹20L deposit, you borrow ₹15L via personal loan → Lease Deposit = ₹20L. Loan = ₹15L. Own Funds = ₹5L. Do NOT enter ₹1Cr.' }
+        ]
+    },
+    loanAmount: {
+        title: 'Loan Against Deposit',
+        subtitle: 'The portion of the lease deposit you borrowed from a bank or lender. Your own contribution is the deposit minus this loan.',
+        sections: [
+            { title: 'What it is', text: 'Few people pay a large lease deposit entirely from savings. Many take a personal loan, LAP, or business credit line to fund part of it. Enter only the borrowed portion here. The rest — your own savings contribution — is automatically calculated as "Own Funds Locked" and displayed at the top of this section. That own-funds amount bears opportunity cost for the full lease term.' },
+            { title: 'No loan? Enter zero', text: 'If you are funding the entire deposit from your own savings or business capital, set this to zero. The full deposit amount then bears opportunity cost. This is often the scenario for cash-rich businesses paying shop or warehouse deposits from reserves.' },
+            { title: 'Residential property', text: 'A ₹20L residential lease deposit is commonly funded via a personal loan of ₹12–16L, with ₹4–8L from savings. If you have a home loan already, a top-up loan is cheaper. If not, an unsecured personal loan is typical. Enter just the borrowed portion — ₹12L in this example.' },
+            { title: 'Retail / shop space', text: 'Shop deposits of ₹20–50L are frequently funded via working capital OD, business loans, or LAP. Enter the loan drawn specifically to fund this deposit. If you used a revolving credit line, enter the amount actually drawn and held for the deposit.' },
+            { title: 'Office / workspace', text: 'Corporate office deposits can be funded via company treasury (loan = 0), business term loans, or OD facilities. Enter the external borrowing. If the company is funding internally, enter 0 and set the opportunity rate to your company\'s cost of capital.' },
+            { title: 'Example', example: 'Deposit = ₹20L. Took ₹14L personal loan. Own funds = ₹6L. → Enter Loan = ₹14L. Own Funds badge shows ₹6L automatically. That ₹6L is what the model prices as locked capital.' }
+        ]
+    },
+    loanRate: {
+        title: 'Loan Interest Rate',
+        subtitle: 'The annual rate your lender charges on the borrowed portion — this directly determines your monthly EMI.',
+        sections: [
+            { title: 'What it is', text: 'The APR on your loan, expressed as an annual percentage. The model converts it to monthly internally and uses a standard reducing-balance EMI formula. Even a 1% difference significantly changes total interest paid over multi-year tenures.' },
+            { title: 'Residential property', text: 'Residential lease deposits are often funded via personal loans or top-up home loans. Top-up home loans are cheapest (8.5–10%) if you already have a home loan. Personal loans for individuals with CIBIL 750+ range from 10–14%. If you are borrowing against an existing property (LAP), expect 9–12%.' },
+            { title: 'Retail / shop space', text: 'Shop lease funding often uses business loans or OD facilities. GST-registered, ITR-consistent businesses can access credit at 11–15% from PSU banks. NBFCs lend at 14–20%. Proprietors with strong collateral can use LAP at 9–13%.' },
+            { title: 'Office / workspace', text: 'Companies leasing office space typically use working capital credit lines or unsecured business loans at 10–16%. Larger corporates with banking relationships may access cheaper structured finance at 8.5–10%.' },
+            { title: 'Current India benchmarks (2024–25)', example: 'Top-up home loan: 8.5–9.5% | Personal loan (good CIBIL): 10–14% | LAP: 9–13% | Business / OD facility: 12–18% | NBFC unsecured: 15–24%' }
+        ]
+    },
+    maintenance: {
+        title: 'Monthly Maintenance',
+        subtitle: 'Ongoing costs to keep the property functional — separate from your EMI and not refundable.',
+        sections: [
+            { title: 'What it is', text: 'Lease agreements typically require the lessee to maintain the property. This covers society charges, minor repairs, AMC contracts, cleaning — anything you pay monthly to keep the asset operational. Exclude utility bills (electricity, water) as those are usage costs, not lease costs.' },
+            { title: 'Residential property', text: 'Society maintenance charges are the primary item: ₹2,000–₹8,000/month depending on the complex and city. Premium gated communities can charge ₹12,000–₹25,000/month. Add a buffer for occasional minor repairs (plumbing, fixtures) if the property is older.' },
+            { title: 'Retail / shop space', text: 'Shops bear higher maintenance — AC servicing, electrical AMC, signage upkeep, periodic painting, and civil minor repairs. A 400–800 sq ft shop typically costs ₹4,000–₹12,000/month in maintenance. High-traffic food and beverage outlets can reach ₹15,000–₹25,000/month.' },
+            { title: 'Office / workspace', text: 'Office maintenance includes HVAC AMC, electrical, housekeeping, and network infrastructure upkeep. Budget ₹8–₹20 per sq ft per month. A 2,000 sq ft office might spend ₹16,000–₹40,000/month on maintenance alone.' },
+            { title: 'Industrial / warehouse', text: 'Warehouses have lower maintenance per sq ft but higher absolute costs due to size. Dock levellers, fire suppression systems, flooring, and roof maintenance add up. Budget ₹5–₹15 per sq ft per month for industrial properties.' }
+        ]
+    },
+    withholding: {
+        title: 'Lease Withholding %',
+        subtitle: 'The share of your deposit you realistically expect not to recover — deducted at exit for damages, restoration, or disputes.',
+        sections: [
+            { title: 'What it is', text: 'Lease agreements allow the lessor to deduct from the security deposit for damages beyond normal wear and tear, restoration of modifications, cleaning, or disputes. This is your realistic estimate of those permanent losses. The model treats it as a sunk cost — money gone.' },
+            { title: 'Residential property', text: 'Exit deductions are common: painting, cleaning, minor fixture repair. A clean, careful tenant who documented the property on entry typically loses 2–5%. Tenants with children, pets, or custom modifications (wardrobes, TV mounts) often see 5–12% deducted. Get a written inventory on day one to protect yourself.' },
+            { title: 'Retail / shop space', text: 'Shops face restoration clauses — returning the space to original state after fit-outs, signage, and equipment. This can be expensive. A basic fit-out shop deducts 5–12%. A heavily modified F&B or salon space can lose 15–25%. Negotiate a written fit-out waiver at signing.' },
+            { title: 'Office / workspace', text: 'Open-plan offices with minimal modifications see 2–6% withheld. Offices with server rooms, raised flooring, partition walls, or custom cabling often face 8–15% deduction. Get restoration scope defined in writing before signing.' },
+            { title: 'Examples', example: 'Residential, careful exit with documentation: 0–3% | Residential, normal wear: 3–7% | Shop with light fit-out: 5–12% | Shop with heavy modifications: 12–25% | Office, plug-and-play: 2–6%' }
+        ]
+    },
+    refundDelay: {
+        title: 'Lease Refund Delay',
+        subtitle: 'Months between vacating the property and the deposit actually arriving in your account.',
+        sections: [
+            { title: 'What it is', text: 'Even when a refund is undisputed, it takes time. While you wait, your capital earns nothing. The model charges you opportunity cost on the refundable amount for every month of delay, using your locked funds rate.' },
+            { title: 'Residential property', text: 'Individual landlords are the slowest refunders — many wait until the next tenant moves in. Expect 1–3 months. Institutional lessors (housing platforms, builder-developer projects) are faster, typically 30–45 days. If your landlord has been slow before, assume 3.' },
+            { title: 'Retail / shop space', text: 'Shop deposit refunds are frequently delayed by disputes over restoration scope. A ₹10L shop deposit delayed 4 months at 12% opportunity rate costs ₹40,000 in lost returns. Budget 2–4 months. A registered lease agreement with a clear exit clause speeds this up significantly.' },
+            { title: 'Office / workspace', text: 'Corporate lessors (IT parks, Grade-A building managers) typically refund within 45–90 days. Individual commercial landlords take 2–5 months. If your office lease is with a small landlord and the deposit is large, set this to 3.' },
+            { title: 'Real cost example', example: 'Deposit ₹5L, delay 3 months, opp rate 12% → ₹15,000 lost | Deposit ₹20L, delay 4 months → ₹80,000 lost | Deposit ₹1Cr, delay 6 months → ₹6L lost' }
+        ]
+    },
+    marketRent: {
+        title: 'Market Rent',
+        subtitle: 'What you would pay monthly if you rented an equivalent property instead of leasing — your true alternative cost.',
+        sections: [
+            { title: 'What it is', text: 'The cornerstone of the comparison. Enter Month 1 rent for an equivalent property in the same location and size. The model escalates this annually using your Rent Growth input and compares cumulative rent to total lease cost over the full term.' },
+            { title: 'Residential property', text: 'Look at NoBroker, 99Acres, or MagicBricks for comparable apartments in the same locality, size, and floor tier. Use transacted rents — ask brokers what deals actually closed at, not listing prices. Listed rents are typically 8–12% higher than transacted. Include any amenities premium if your lease property has a pool, gym, etc.' },
+            { title: 'Retail / shop space', text: 'Monthly rent for shops is almost always quoted per sq ft. Get broker quotes for comparable ground-floor space in the same micro-market — same street or same mall tier. Frontage, corner position, and foot traffic significantly affect rent. Use 2–3 quotes and take the median.' },
+            { title: 'Office / workspace', text: 'Office rents are quoted per sq ft per month on carpet or super built-up area. Ensure you compare on the same basis. Co-working as an alternative is priced per seat — convert to sq ft equivalent (typically 60–80 sq ft per seat) for comparison. Grade-A buildings command a 20–40% premium over Grade-B.' },
+            { title: 'Benchmarks (2024)', example: 'Bengaluru 2BHK (Whitefield): ₹28–45K | Mumbai 2BHK (Andheri): ₹55–85K | Bengaluru office (Grade-A): ₹90–130/sq ft/month | Mumbai retail (high-street): ₹200–500/sq ft/month' }
+        ]
+    },
+    rentDeposit: {
+        title: 'Rent Deposit',
+        subtitle: 'Security deposit you would pay under a rental agreement — refundable but capital is locked for the term.',
+        sections: [
+            { title: 'What it is', text: 'Rental agreements require an upfront security deposit. Unlike a lease deposit, rental deposits are smaller relative to property value. But the money still sits idle — the model charges opportunity cost on it for the full comparison period.' },
+            { title: 'Residential property', text: 'Residential rental deposits vary sharply by city. Bengaluru is an outlier — 5–10 months rent is common (a legacy of old KAR Rent Control norms). Mumbai, Delhi, Pune, Hyderabad are more standard at 2–3 months. Always enter the actual deposit you would pay, not a national average.' },
+            { title: 'Retail / shop space', text: 'Shop rental deposits are typically 3–6 months of rent, sometimes higher in prime high-street locations. A ₹60,000/month shop with 4 months deposit = ₹2.4L locked. For comparison, a co-working space might ask zero or just 1 month advance.' },
+            { title: 'Office / workspace', text: 'Standard office rental deposits are 3–6 months rent. Managed office / co-working spaces typically require just 1 month. If you are comparing a lease against a flexible office subscription, the rental deposit can be near zero — enter accordingly.' },
+            { title: 'City norms', example: 'Bengaluru residential: 5–10 months rent | Mumbai: 2–3 months | Delhi NCR: 2–3 months | Pune: 2–4 months | Commercial pan-India (rental): 3–6 months | Co-working: 0–1 month' }
+        ]
+    },
+    depositRefundDelay: {
+        title: 'Rent Deposit Refund Delay',
+        subtitle: 'Months after vacating before your rental deposit comes back to you.',
+        sections: [
+            { title: 'What it is', text: 'Even rental deposits take time to return. The model charges opportunity cost on the rental deposit for the duration of this delay. For small deposits, the impact is minor — but in high-deposit cities like Bengaluru with 8–10 months deposit, a 2-month delay on a large sum genuinely costs money.' },
+            { title: 'Residential property', text: 'Most residential landlords return within 1–2 months after inspection and key handover. Clean exits with prior written communication and photo documentation speed this up. Disputed exits drag to 3–6 months. Use 1–2 as a standard default.' },
+            { title: 'Retail / shop space', text: 'Shop rental deposits face higher dispute rates — restoration of fit-outs, signage removal, damage claims. Budget 2–3 months. Prime high-street landlords with professionally managed properties are faster.' },
+            { title: 'Office / workspace', text: 'Corporate office rental deposits from professional landlords are typically returned in 30–60 days. Individual landlord offices take 1–3 months. Co-working spaces return deposits almost immediately on exit.' }
+        ]
+    },
+    rentIncrement: {
+        title: 'Annual Rent Growth',
+        subtitle: 'How much rent escalates each year — the primary reason a fixed lease often beats renting over time.',
+        sections: [
+            { title: 'What it is', text: 'Rent rarely stays flat. The model escalates your starting rent by this percentage every 12 months. Compounding rent growth is the most powerful lever in this calculation — even 1% more growth per year has a dramatic effect on 5-year totals.' },
+            { title: 'Residential property', text: 'Residential rent growth in Indian metros has been aggressive post-2022. Premium localities in Bengaluru, Hyderabad, and Mumbai saw 10–15% year-on-year increases at peak. Stabilised markets are now reverting to 5–8%. Use your landlord\'s history and local broker intelligence — not national averages.' },
+            { title: 'Retail / shop space', text: 'High-street shop rents follow demand cycles tightly. Supply-constrained markets (MG Road Bengaluru, SV Road Mumbai, Connaught Place Delhi) grow at 6–12%/year. Suburban malls and secondary streets see 3–6% or may stagnate. Check vacancy rates in the micro-market as a signal.' },
+            { title: 'Office / workspace', text: 'Grade-A office rents in India\'s top 6 cities grew 4–8% CAGR over 2019–2024. SEZ and tech park buildings in supply-constrained zones grow faster. Co-working rates are more volatile and can move 10–20% in either direction based on demand.' },
+            { title: 'Industrial / warehouse', text: 'Warehouse rents near major logistics corridors (NH48, NH8, JNPT catchment) are growing at 8–12%/year driven by e-commerce demand. Peripheral industrial zones see 3–6% growth. Cold-storage is tighter — 8–15% in key cities.' },
+            { title: 'Why this matters', example: 'Rent ₹50,000 at 8% growth → Year 5 rent ₹73,466. 5-year total: ₹35.1L. At 5% growth → Year 5 rent ₹60,775. 5-year total: ₹33.2L. That ₹1.9L difference changes the verdict.' }
+        ]
+    },
+    flexibilityPremium: {
+        title: 'Flexibility Value',
+        subtitle: 'The monthly ₹ value you place on renting\'s ability to exit without penalty — a lease cannot offer this.',
+        sections: [
+            { title: 'What it is', text: 'Renting gives you the right to leave with short notice and minimal penalty. A lease locks you in — early termination typically means deposit forfeiture or contractual penalties. This field quantifies that option value in monthly terms. The model subtracts it from rent\'s total cost, making renting appear cheaper on a risk-adjusted basis.' },
+            { title: 'Residential property', text: 'Location certainty matters here. Are you confident you will stay in this city for the full lease term? If you relocate frequently for work, change employers often, or have elderly parents in another city, exit optionality has real value — ₹3,000–₹8,000/month. If you are settled and confident, ₹0–₹2,000 is appropriate.' },
+            { title: 'Retail / shop space', text: 'A new business in an unproven location should value exit flexibility highly — ₹8,000–₹20,000/month. An established business with 5+ years at the same location and loyal foot traffic has very little reason to exit — use ₹0–₹3,000. The break-even clause or lock-in period in your lease also affects this.' },
+            { title: 'Office / workspace', text: 'Fast-growing startups that may need to double or halve headcount within 2 years should value flexibility at ₹5,000–₹15,000/month. A stable 50-person company with predictable headcount can use ₹1,000–₹3,000. Co-working is the ultimate flexible option — if you are comparing against co-working, flexibility value should be near zero for the renting side.' },
+            { title: 'Calibration guide', example: 'High certainty of staying (established business / settled household): ₹0–₹2,000 | Moderate uncertainty (growing team / mobile professional): ₹3,000–₹8,000 | High uncertainty (early-stage business / frequently relocated): ₹8,000–₹20,000' }
+        ]
+    },
+    leaseTenure: {
+        title: 'Lease Tenure',
+        subtitle: 'The total committed duration of your lease in months — sets the time horizon for the entire comparison.',
+        sections: [
+            { title: 'What it is', text: 'How long you are contractually bound to the property, in months. All costs and savings compound over this period. Longer tenures generally favour leasing because rent escalation compounds — but they also increase your lock-in risk.' },
+            { title: 'Residential property', text: 'Residential leases in India are almost universally 11-month agreements (to avoid mandatory registration under the Registration Act). Most people renew 2–3 times. Model your likely total stay: if you expect to stay 3 years, enter 36 months even if the formal agreement is 11-month renewable. The model compares total economics over that horizon.' },
+            { title: 'Retail / shop space', text: 'Standard shop leases run 36–60 months with a 3-year lock-in (the lessee cannot exit before 3 years without penalty). Anchor tenant arrangements in malls can be 60–120 months. Shorter tenures typically favour renting; longer tenures in high-rent-growth markets strongly favour leasing.' },
+            { title: 'Office / workspace', text: 'Small office leases are typically 36 months. Large corporate floor plates go to 60–84 months. Co-working memberships are month-to-month to 12 months. If you are modelling a lease vs co-working comparison, use your planned office commitment horizon as the tenure.' },
+            { title: 'Industrial / warehouse', text: 'Warehouses are leased for 36–120 months. Long-term logistics contracts (3PL, e-commerce fulfilment) often anchor leases at 60–84 months. Shorter warehousing needs (seasonal, overflow) are better served by rental arrangements.' },
+            { title: 'Rule of thumb', text: 'Below 18 months, leasing rarely wins unless the deposit is very small. Beyond 36 months in a 6%+ rent growth market, leasing almost always wins if deposit costs are contained. Use the Cumulative Impact chart to see the exact crossover month.' }
+        ]
+    },
+    loanTenure: {
+        title: 'Loan Tenure',
+        subtitle: 'Repayment period for your loan — must be ≤ lease tenure. A shorter loan creates an EMI-free tail that improves lease economics.',
+        sections: [
+            { title: 'What it is', text: 'How many months you repay the loan. The model automatically caps this at your lease tenure — you cannot repay over a longer period than the lease runs. If your loan ends before the lease, you enjoy EMI-free months at a lower effective monthly cost. This "tail benefit" often makes the difference in borderline decisions.' },
+            { title: 'Residential property', text: 'Personal loans used to fund residential lease deposits typically run 12–36 months. On a 24-month lease with a 12-month loan: 12 months are EMI-free. That substantially lowers your average monthly cost. If you are using savings (no loan), set loan amount to zero and this field has no effect.' },
+            { title: 'Retail / shop space', text: 'Business loan tenures for shop lease funding are typically 12–36 months. A 5-year shop lease with a 2-year business loan gives you 3 EMI-free years — a significant boost. If you are pre-paying a loan from business cash flows, use the effective payoff month, not the contracted tenure.' },
+            { title: 'Office / workspace', text: 'Corporate office lease deposits funded via working capital OD or business credit lines are often cleared within 12–24 months. A 5-year office lease with a 2-year OD gives you 3 EMI-free years. If the credit line is revolving (not term), match the tenure to your actual payoff plan.' },
+            { title: 'Example', example: 'Loan tenure 12 mo, Lease 36 mo → 24 months EMI-free (strong lease benefit) | Loan tenure = Lease tenure → No EMI-free period | Loan ₹0 → No EMI at all, only opp cost on own funds' }
+        ]
+    },
+    oppRate: {
+        title: 'Opportunity Cost Rate',
+        subtitle: 'What your locked capital could have earned in its next-best use — enter the nominal annual return, pre-inflation.',
+        sections: [
+            { title: 'What it is', text: 'Money locked in a lease deposit cannot be invested. This rate represents the return you give up by locking it up. The model compounds this over the full lease term. Higher rate = leasing becomes more expensive because the trapped capital "costs" more.' },
+            { title: 'Residential property', text: 'Most individuals holding large residential deposits would otherwise invest in FDs, equity mutual funds, or PPF. A realistic blended return for a balanced investor is 9–12% nominal. Conservative (FD + debt): 7–8%. Equity-heavy investors: 12–16%. Use your actual portfolio return expectation, not an aspirational number.' },
+            { title: 'Retail / shop space', text: 'Shop owners tying up ₹10L–₹30L in a lease deposit should benchmark against their own business return. If that capital deployed in inventory or working capital earns 20–30% ROI, that is the true opportunity cost — not an FD rate. This dramatically changes the calculation for profitable retail businesses.' },
+            { title: 'Office / workspace', text: 'Companies with office lease deposits locked up should use their weighted cost of capital (WACC) or their next best investment return. For a profitable company deploying capital at 15–25% ROI internally, a large office deposit is expensive. For an early-stage startup with no profitable uses for capital yet, use a lower market rate (9–12%).' },
+            { title: 'Industrial / warehouse', text: 'Warehouse deposits are often large (₹20L–₹2Cr). For logistics businesses, that capital could fund trucks, inventory, or warehouse equipment — often earning 18–30% returns. Use your actual business return, not a passive investment rate.' },
+            { title: 'Benchmarks', example: 'FD / PPF (risk-free): 7–8% | Balanced mutual fund: 10–13% | Equity index fund: 13–16% | Profitable business capital: 18–30%' }
+        ]
+    },
+    riskPremium: {
+        title: 'Net Lease Risk Premium',
+        subtitle: 'Extra annual % for risks unique to leasing — counterparty, lock-in, and deposit recovery risk beyond what renting carries.',
+        sections: [
+            { title: 'What it is', text: 'Leasing exposes you to risks that renting does not: a large deposit with one party for years, limited exit options, and potential disputes at recovery. This premium captures only the net excess risk of leasing over renting. It is applied to the lease amount and annualised.' },
+            { title: 'Residential property', text: 'Key risks: landlord refuses full refund, sells the property mid-lease, or disputes condition at exit. A registered lease agreement with a reputed individual landlord in a stable building: 1–1.5%. An informal arrangement with an unregistered lessor: 2–3%. Corporate housing providers with escrow: 0.5–1%.' },
+            { title: 'Retail / shop space', text: 'Commercial risk is higher — deposits are larger, disputes are financially motivated, and court recovery takes years. If you are leasing from a builder or developer with a track record: 1–2%. Individual shop owner with no documentation: 3–5%. High-street prime shops where deposit forfeiture is a known lessor tactic: 4–6%.' },
+            { title: 'Office / workspace', text: 'Grade-A buildings managed by institutional landlords (REITs, large developers) carry very low risk — 0.5–1%. The documentation is strong, legal departments are professional, and refunds are reliable. Individual landlord office space: 2–3%. SEZ buildings have specific legal protections that reduce risk further.' },
+            { title: 'Industrial / warehouse', text: 'Industrial leases are generally better documented (registered, stamp-duty paid) and disputes are rarer. But the deposits are large, so risk is still real. Reputed industrial park lessors: 1–1.5%. Informal factory shed arrangements: 3–5%.' },
+            { title: 'Calibration', example: 'REIT / institutional lessor, registered agreement: 0.5–1% | Reputed developer, standard agreement: 1–1.5% | Individual lessor, moderate documentation: 1.5–2.5% | Informal, high-value deposit, weak paperwork: 3–6%' }
+        ]
+    },
+    inflationRate: {
+        title: 'Inflation Rate',
+        subtitle: 'Expected annual consumer inflation — used to convert your nominal opportunity rate into a real, purchasing-power-adjusted rate. Does not escalate rent.',
+        sections: [
+            { title: 'What it is', text: 'Inflation erodes the real value of returns. A 12% nominal investment return in a 6% inflation environment is only ~5.7% real. The model uses this to adjust your opportunity cost to real terms — ensuring the cost of locking up capital is not overstated in nominal terms.' },
+            { title: 'How it affects the model', text: 'Higher inflation → lower real opportunity cost → leasing becomes relatively more attractive. Lower inflation → higher real opportunity cost → locked deposit costs more. Set this to your expected CPI over the lease term, not just the current reading.' },
+            { title: 'Important: this does NOT escalate rent', text: 'Rent growth is controlled by the Rent Growth field. Inflation here only adjusts opportunity cost calculations. Enter both independently — they often diverge significantly (e.g. 6% CPI with 10% rent growth in metro residential markets).' },
+            { title: 'Property type notes', text: 'Inflation is not property-type specific — use the same macro rate regardless. The difference between property types shows up in Rent Growth, not here. Use RBI\'s medium-term target of 4–5% for conservative estimates, or 5.5–7% if you expect elevated urban inflation.' },
+            { title: 'Reference', example: 'RBI inflation target: 4% | CPI average 2022–24: 5.5–6.5% | Conservative long-run forecast: 4.5–5% | Urban services inflation (anecdotal): 6–8%' }
+        ]
+    },
+    liquidityPremium: {
+        title: 'Liquidity Premium',
+        subtitle: 'Extra % added on top of your opportunity rate for lease deposit capital — because years-long lock-in is worse than months-long lock-in.',
+        sections: [
+            { title: 'What it is', text: 'A rental deposit (2–3 months, small sum) can be recovered relatively quickly. A lease deposit (large, locked for years, often disputes-prone) is far less liquid. This premium compensates for that additional illiquidity — applied only to the own-funds portion of the lease deposit, not the rent deposit.' },
+            { title: 'Residential property', text: 'If the deposit represents more than 10–20% of your liquid savings, illiquidity is a real concern — you cannot access it in an emergency. Use 1.5–2.5%. If the deposit is a minor fraction of your overall wealth and you have ample liquidity elsewhere, 0.5–1% is sufficient.' },
+            { title: 'Retail / shop space', text: 'For businesses with working capital cycles, tying up ₹10–₹30L in a shop deposit has meaningful opportunity friction. The same capital could fund faster inventory turns. Use 2–3.5% if the deposit materially constrains your working capital. Lower if you are capital-rich.' },
+            { title: 'Office / workspace', text: 'For companies with active deployment of capital (hiring, product, marketing), an office deposit that could fund 2–3 months of runway is genuinely illiquid. Startups: 2.5–4%. Established companies with cash reserves: 1–2%.' },
+            { title: 'How to calibrate', example: 'Deposit < 10% of liquid wealth: 0.5–1% | Deposit is 10–25% of liquid wealth: 1.5–2.5% | Deposit > 25% of liquid wealth or constrains business working capital: 2.5–4%' }
+        ]
+    },
+    returnVol: {
+        title: 'Return Volatility',
+        subtitle: 'How unpredictable your alternative investment returns are — higher volatility means you cannot fully rely on the quoted opportunity rate.',
+        sections: [
+            { title: 'What it is', text: 'If you claim "I could earn 14% in equity funds," but those returns swing from −20% to +40%, you cannot count on 14% with certainty. The model applies a certainty-equivalent downward adjustment (Kelly-style penalty) to your opportunity rate based on volatility. Higher volatility → lower reliable effective rate → leasing looks slightly more attractive.' },
+            { title: 'Residential property', text: 'Individual depositors most commonly compare against FDs, PPF, or mutual funds. FD and PPF have near-zero volatility (use 3–5%). Equity mutual funds have high volatility — Nifty 50 standard deviation is ~15–18% annually. A balanced investor in hybrid funds: 10–14%.' },
+            { title: 'Retail / shop space', text: 'If your alternative is to deploy the deposit money back into your business, business returns are highly volatile. A profitable year can follow a loss-making one. Use 25–40% to reflect real business return variability. This will modestly reduce the effective opportunity rate, making the large shop deposit seem less costly to justify.' },
+            { title: 'Office / workspace', text: 'For companies, the alternative deployment (hiring, product, sales) has high volatility especially at early stages. Use 20–35% for startups, 10–20% for established companies with predictable EBITDA. Large corporates with stable cash flows: 8–12%.' },
+            { title: 'Quick reference', example: 'FD / PPF / liquid fund: 3–5% | Debt / short-duration fund: 5–8% | Balanced / hybrid fund: 10–14% | Nifty 50 index fund: 15–18% | Mid/small cap equity: 22–30% | Business returns: 25–40%' }
+        ]
+    }
+};
+
+function showFieldHelp(fieldId) {
+    const help = fieldHelp[fieldId] || { title: 'Help', subtitle: '' };
+    let html = `<div class="modal-title">${help.title}</div><div class="modal-subtitle">${help.subtitle}</div>`;
+    (help.sections || []).forEach(s => {
+        html += `<div class="modal-section">`;
+        if (s.title) html += `<div class="modal-section-title">${s.title}</div>`;
+        if (s.text) html += `<div class="modal-text">${s.text}</div>`;
+        if (s.example) html += `<div class="modal-example">📌 ${s.example}</div>`;
+        html += `</div>`;
+    });
+    $('helpContent').innerHTML = html;
+    $('helpModal').classList.add('active');
+}
+
+function showGlobalHelp() {
+    $('helpContent').innerHTML = `
+        <div class="modal-title">💡 How to Use This Calculator</div>
+        <div class="modal-subtitle">Quick guide to comparing lease vs. rent options.</div>
+        <div class="modal-section"><div class="modal-section-title">Step 1: Enter Your Numbers</div><div class="modal-text">Fill in asset price, loan terms, and market rent. Use ⓘ buttons for field explanations.</div></div>
+        <div class="modal-section"><div class="modal-section-title">Step 2: Set Economic Assumptions</div><div class="modal-text">Define investment returns, inflation, and risk comfort. These affect long-term comparisons.</div></div>
+        <div class="modal-section"><div class="modal-section-title">Step 3: Read the Score</div><div class="modal-text"><strong>0-35:</strong> Rent is better | <strong>35-50:</strong> Neutral | <strong>50-85:</strong> Lease is better | <strong>85-100:</strong> Strong lease advantage</div></div>
+        <div class="modal-section"><div class="modal-section-title">⚡ Quick Scenarios</div><div class="modal-text">Use the preset buttons at the top to instantly load typical scenarios: Salaried Residential, Self-Employed Commercial, Conservative, or Aggressive Investor profiles.</div></div>
+        <div class="modal-section"><div class="modal-section-title">⌨️ Keyboard Shortcuts</div><div class="modal-text"><code style="background:rgba(77,179,255,0.1);padding:2px 6px;border-radius:4px;">?</code> or <code style="background:rgba(77,179,255,0.1);padding:2px 6px;border-radius:4px;">H</code> — Open help &nbsp;&nbsp; <code style="background:rgba(77,179,255,0.1);padding:2px 6px;border-radius:4px;">R</code> — Reset to defaults &nbsp;&nbsp; <code style="background:rgba(77,179,255,0.1);padding:2px 6px;border-radius:4px;">Esc</code> — Close modal</div></div>
+    `;
+    $('helpModal').classList.add('active');
+}
+
+function closeHelpModal(event) {
+    if (event && event.target !== $('helpModal')) return;
+    $('helpModal').classList.remove('active');
+}
+
+/* ================= UPDATE ALL LABELS ================= */
+function updateAllLabels() {
+    syncInputs.forEach(({ id, label, format }) => {
+        const input = $(id);
+        const labelEl = label ? $(label) : null;
+        const range = $(id + 'Range');
+        if (!input || !labelEl) return;
+        const val = cleanNumber(input.value);
+        if (format === 'inr') labelEl.innerText = formatINR(val);
+        else if (format === 'percent') labelEl.innerText = formatPercent(val);
+        else labelEl.innerText = val;
+        if (range) range.value = val;
+    });
+}
+
+/* ================= INPUT SYNC ================= */
+const syncInputs = [
+    { id: 'leaseAmount', label: 'leaseAmountLabel', format: 'inr' },
+    { id: 'loanAmount', label: 'loanAmountLabel', format: 'inr' },
+    { id: 'loanRate', label: 'loanRateLabel', format: 'percent' },
+    { id: 'maintenance', label: 'maintenanceLabel', format: 'inr' },
+    { id: 'withholding', label: 'withholdingLabel', format: 'percent' },
+    { id: 'refundDelay', label: 'refundDelayLabel', format: 'plain' },
+    { id: 'marketRent', label: 'marketRentLabel', format: 'inr' },
+    { id: 'rentDeposit', label: 'rentDepositLabel', format: 'inr' },
+    { id: 'depositRefundDelay', label: 'depositRefundDelayLabel', format: 'plain' },
+    { id: 'rentIncrement', label: 'rentIncrementLabel', format: 'percent' },
+    { id: 'flexibilityPremium', label: 'flexibilityPremiumLabel', format: 'inr' },
+    { id: 'leaseTenure', label: 'leaseTenureLabel', format: 'plain' },
+    { id: 'loanTenure', label: 'loanTenureLabel', format: 'plain' },
+    { id: 'oppRate', label: 'oppRateLabel', format: 'percent' },
+    { id: 'riskPremium', label: 'riskPremiumLabel', format: 'percent' },
+    { id: 'inflationRate', label: 'inflationRateLabel', format: 'percent' },
+    { id: 'liquidityPremium', label: 'liquidityPremiumLabel', format: 'percent' },
+    { id: 'returnVol', label: 'returnVolLabel', format: 'percent' }
+];
+
+syncInputs.forEach(({ id, label, format }) => {
+    const input = $(id);
+    const range = $(id + 'Range');
+    const labelEl = label ? $(label) : null;
+
+    const updateLabel = () => {
+        if (!labelEl) return;
+        const val = cleanNumber(input.value);
+        if (format === 'inr') labelEl.innerText = formatINR(val);
+        else if (format === 'percent') labelEl.innerText = formatPercent(val);
+        else labelEl.innerText = val;
+    };
+
+    if (range) { range.addEventListener('input', () => {
+        input.value = range.value; updateLabel();
+        // Live cap: if leaseTenure changes, clamp loanTenure
+        if (id === 'leaseTenure') {
+            const lt = cleanNumber(input.value);
+            const loanT = $('loanTenure'), loanR = $('loanTenureRange');
+            if (loanT && cleanNumber(loanT.value) > lt) {
+                loanT.value = lt; if (loanR) { loanR.value = lt; loanR.setAttribute('aria-valuenow', lt); }
+                const lbl = $('loanTenureLabel'); if (lbl) lbl.innerText = lt;
+            }
+        }
+        calculate();
+    }); }
+    input.addEventListener('input', () => { const clean = cleanNumber(input.value); if (range) range.value = clean; updateLabel(); calculate(); });
+});
+
+/* ================= EMI ================= */
+function emi(P, r, n) {
+    if (r === 0) return P / n;
+    return P * r * Math.pow(1 + r, n) / (Math.pow(1 + r, n) - 1);
+}
+
+/* ================= CHARTS ================= */
+let tcoChart, monthlyCostChart, cumulativeImpactChart, sensitivityChart,
+    costCompositionChart, rentProjectionChart, sensitivityHeatmapChart, amortizationChart;
+
+let lastCalculationState = { monthlyLeaseCost: 0, monthlyRentCost: 0, LEASE_TENURE: 24 };
+
+function initCharts(data) {
+    const colors = getChartColors();
+
+    // 1. TCO CHART
+    if (!tcoChart) {
+        tcoChart = new Chart($('tcoChart'), {
+            type: 'bar',
+            data: {
+                labels: data.tco.labels,
+                datasets: [{ label: 'Economic Cost', data: data.tco.values, backgroundColor: ['rgba(255,77,77,0.8)','rgba(155,89,182,0.8)','rgba(241,196,15,0.8)','rgba(77,179,255,0.8)','rgba(46,204,113,0.8)','rgba(0,212,255,0.8)'], borderRadius: 8, borderWidth: 0 }]
+            },
+            options: {
+                indexAxis: 'y', responsive: true, maintainAspectRatio: false,
+                plugins: {
+                    legend: { display: false },
+                    datalabels: { anchor: 'end', align: 'right', color: colors.text, font: { weight: 'bold', size: 11 }, formatter: v => formatINR(v) },
+                    tooltip: { callbacks: { label: ctx => `${ctx.label}: ${formatINR(ctx.parsed.x)}` } }
+                },
+                scales: {
+                    x: { ticks: { callback: v => formatINR(v), color: colors.muted }, grid: { color: colors.border } },
+                    y: { ticks: { color: colors.muted }, grid: { display: false } }
+                }
+            },
+            plugins: [ChartDataLabels]
+        });
+    } else {
+        tcoChart.data.labels = data.tco.labels;
+        tcoChart.data.datasets[0].data = data.tco.values;
+        tcoChart.update();
+    }
+
+    // 2. MONTHLY COST CHART
+    if (!monthlyCostChart) {
+        monthlyCostChart = new Chart($('monthlyCostChart'), {
+            type: 'bar',
+            data: {
+                labels: ['EMI', 'Maintenance', 'Risk-Adj. Lease', 'Market Rent', 'Advantage'],
+                datasets: [
+                    { label: 'Actual Lease Outflow', data: [data.monthly.emi, data.monthly.maintenance, null, null, null], backgroundColor: 'rgba(255,140,58,0.7)', borderRadius: 6, borderWidth: 0 },
+                    { label: 'Economic Lease Cost', data: [null, null, data.monthly.riskRent, null, null], backgroundColor: 'rgba(155,89,182,0.7)', borderRadius: 6, borderWidth: 0 },
+                    { label: 'Current Market Rent', data: [null, null, null, data.monthly.rent, null], backgroundColor: 'rgba(46,204,113,0.7)', borderRadius: 6, borderWidth: 0 },
+                    { label: 'Monthly Savings', data: [null, null, null, null, data.monthly.advantage], backgroundColor: data.monthly.advantage >= 0 ? 'rgba(46,204,113,0.7)' : 'rgba(255,77,77,0.7)', borderRadius: 6, borderWidth: 0 }
+                ]
+            },
+            options: {
+                responsive: true, maintainAspectRatio: false,
+                plugins: {
+                    legend: { display: true, position: 'top' },
+                    datalabels: { anchor: 'top', align: 'center', color: colors.text, font: { weight: 'bold', size: 10 }, formatter: v => v ? formatINR(v) : '' },
+                    tooltip: { callbacks: { label: ctx => ctx.parsed.y != null ? `${ctx.dataset.label}: ${formatINR(ctx.parsed.y)}` : '' } }
+                },
+                scales: {
+                    y: { ticks: { callback: v => formatINR(v), color: colors.muted }, grid: { color: colors.border } },
+                    x: { ticks: { color: colors.muted }, grid: { display: false } }
+                }
+            },
+            plugins: [ChartDataLabels]
+        });
+    } else {
+        monthlyCostChart.data.datasets[0].data = [data.monthly.emi, data.monthly.maintenance, null, null, null];
+        monthlyCostChart.data.datasets[1].data = [null, null, data.monthly.riskRent, null, null];
+        monthlyCostChart.data.datasets[2].data = [null, null, null, data.monthly.rent, null];
+        monthlyCostChart.data.datasets[3].data = [null, null, null, null, data.monthly.advantage];
+        monthlyCostChart.data.datasets[3].backgroundColor = data.monthly.advantage >= 0 ? 'rgba(46,204,113,0.7)' : 'rgba(255,77,77,0.7)';
+        monthlyCostChart.update();
+    }
+
+    // 3. CUMULATIVE IMPACT
+    if (!cumulativeImpactChart) {
+        cumulativeImpactChart = new Chart($('cumulativeImpactChart'), {
+            type: 'line',
+            data: {
+                labels: data.cumulative.months,
+                datasets: [
+                    { label: 'Cumulative Lease Cost (Economic)', data: data.cumulative.leaseCosts, borderColor: 'rgba(255,77,77,0.9)', backgroundColor: 'rgba(255,77,77,0.1)', borderWidth: 3, fill: true, tension: 0.4, pointRadius: 0, pointHoverRadius: 6 },
+                    { label: 'Cumulative Market Rent', data: data.cumulative.buyCosts, borderColor: 'rgba(46,204,113,0.9)', backgroundColor: 'rgba(46,204,113,0.1)', borderWidth: 3, fill: true, tension: 0.4, pointRadius: 0, pointHoverRadius: 6 }
+                ]
+            },
+            options: {
+                responsive: true, maintainAspectRatio: false,
+                interaction: { mode: 'index', intersect: false },
+                plugins: {
+                    legend: { display: true, position: 'top' },
+                    datalabels: { display: false },
+                    tooltip: { callbacks: { label: ctx => `${ctx.dataset.label}: ${formatINR(ctx.parsed.y)}` } }
+                },
+                scales: {
+                    y: { ticks: { callback: v => formatINR(v), color: colors.muted }, grid: { color: colors.border } },
+                    x: { ticks: { color: colors.muted }, grid: { display: false } }
+                }
+            }
+        });
+    } else {
+        cumulativeImpactChart.data.labels = data.cumulative.months;
+        cumulativeImpactChart.data.datasets[0].data = data.cumulative.leaseCosts;
+        cumulativeImpactChart.data.datasets[1].data = data.cumulative.buyCosts;
+        cumulativeImpactChart.update();
+    }
+
+    // 4. SENSITIVITY BUBBLE CHART
+    // FIX 3: x-axis label changed from 'Scenario Index' to 'Rent Change (%)'
+    if (!sensitivityChart) {
+        sensitivityChart = new Chart($('sensitivityChart'), {
+            type: 'bubble',
+            data: {
+                datasets: [
+                    { label: 'Lease Advantage', data: data.sensitivity.leaseAdvantage, backgroundColor: 'rgba(255,77,77,0.6)', borderColor: 'rgba(255,77,77,0.9)', borderWidth: 1 },
+                    { label: 'Rent Advantage', data: data.sensitivity.rentAdvantage, backgroundColor: 'rgba(46,204,113,0.6)', borderColor: 'rgba(46,204,113,0.9)', borderWidth: 1 }
+                ]
+            },
+            options: {
+                responsive: true, maintainAspectRatio: false,
+                plugins: { legend: { display: true, position: 'top' }, datalabels: { display: false } },
+                scales: {
+                    x: {
+                        title: { display: true, text: 'Rent Change (%)', color: colors.muted }, // FIX 3
+                        ticks: { callback: v => v + '%', color: colors.muted },
+                        grid: { color: colors.border }
+                    },
+                    y: {
+                        title: { display: true, text: 'Rent Growth Change (%)', color: colors.muted },
+                        ticks: { callback: v => v + '%', color: colors.muted },
+                        grid: { color: colors.border }
+                    }
+                }
+            }
+        });
+    } else {
+        sensitivityChart.data.datasets[0].data = data.sensitivity.leaseAdvantage;
+        sensitivityChart.data.datasets[1].data = data.sensitivity.rentAdvantage;
+        sensitivityChart.update();
+    }
+
+    // 5. COST COMPOSITION PIE
+    if (!costCompositionChart) {
+        costCompositionChart = new Chart($('costCompositionChart'), {
+            type: 'doughnut',
+            data: {
+                labels: data.composition.labels,
+                datasets: [{ data: data.composition.values, backgroundColor: ['rgba(255,77,77,0.9)','rgba(155,89,182,0.9)','rgba(241,196,15,0.9)','rgba(77,179,255,0.9)','rgba(46,204,113,0.9)','rgba(0,212,255,0.9)'], borderColor: colors.card, borderWidth: 3 }]
+            },
+            options: {
+                responsive: true, maintainAspectRatio: false,
+                plugins: {
+                    legend: { display: true, position: 'bottom', labels: { color: colors.text, padding: 18, usePointStyle: true, font: { weight: '700', size: 12 } } },
+                    datalabels: { color: colors.text, font: { weight: 'bold', size: 13 }, formatter: (v, ctx) => { const t = ctx.dataset.data.reduce((a,b)=>a+b,0); const p = ((v/t)*100).toFixed(0); return p > 5 ? p + '%' : ''; } },
+                    tooltip: { callbacks: { label: ctx => { const t = ctx.dataset.data.reduce((a,b)=>a+b,0); return `${formatINR(ctx.parsed)} (${((ctx.parsed/t)*100).toFixed(1)}%)`; } } }
+                }
+            },
+            plugins: [ChartDataLabels]
+        });
+    } else {
+        costCompositionChart.data.labels = data.composition.labels;
+        costCompositionChart.data.datasets[0].data = data.composition.values;
+        costCompositionChart.update();
+    }
+
+    // 6. RENT PROJECTION
+    const rp = data.rentProjection;
+    const monthlyM1Save = rp.monthlyRent[0] - rp.leaseConstant[0];
+    const finalMonthSave = rp.monthlyRent[rp.monthlyRent.length - 1] - rp.leaseConstant[rp.leaseConstant.length - 1];
+    const totalCumulSave = rp.cumulativeSavings[rp.cumulativeSavings.length - 1];
+    if ($('rentStatMonthly')) $('rentStatMonthly').textContent = formatINR(monthlyM1Save);
+    if ($('rentStatCumulative')) $('rentStatCumulative').textContent = formatINR(totalCumulSave);
+    if ($('rentStatFinal')) $('rentStatFinal').textContent = formatINR(finalMonthSave);
+    if ($('rentCrossoverPill') && $('rentStatCrossover')) {
+        if (rp.crossoverMonth) { $('rentCrossoverPill').style.display = ''; $('rentStatCrossover').textContent = 'M' + rp.crossoverMonth; }
+        else { $('rentCrossoverPill').style.display = 'none'; }
+    }
+
+    if (!rentProjectionChart) {
+        rentProjectionChart = new Chart($('rentProjectionChart'), {
+            type: 'line',
+            data: {
+                labels: rp.months,
+                datasets: [
+                    { label: 'Market Rent (Escalating)', data: rp.monthlyRent, borderColor: 'rgba(46,204,113,1)', backgroundColor: 'rgba(46,204,113,0)', borderWidth: 2.5, fill: { target: 1, above: 'rgba(46,204,113,0.15)', below: 'rgba(255,77,77,0.12)' }, tension: 0.35, pointRadius: 0, pointHoverRadius: 6, yAxisID: 'y' },
+                    { label: 'Lease Monthly Cost (Fixed)', data: rp.leaseConstant, borderColor: 'rgba(77,179,255,1)', backgroundColor: 'rgba(77,179,255,0)', borderWidth: 2.5, fill: false, tension: 0, pointRadius: 0, pointHoverRadius: 6, yAxisID: 'y' },
+                    { label: 'Cumulative Net Savings', data: rp.cumulativeSavings, borderColor: 'rgba(155,89,182,0.9)', backgroundColor: 'rgba(155,89,182,0.08)', borderWidth: 2, fill: true, tension: 0.4, borderDash: [6,3], pointRadius: 0, pointHoverRadius: 5, yAxisID: 'y1' }
+                ]
+            },
+            options: {
+                responsive: true, maintainAspectRatio: false,
+                interaction: { mode: 'index', intersect: false },
+                plugins: {
+                    legend: { display: true, position: 'top', labels: { color: colors.text, usePointStyle: true, padding: 16 } },
+                    datalabels: { display: false },
+                    tooltip: { callbacks: { label: (ctx) => { if (ctx.datasetIndex === 2) return `Cumulative Net Saving: ${formatINR(ctx.parsed.y)}`; const saving = rp.monthlyRent[ctx.dataIndex] - rp.leaseConstant[ctx.dataIndex]; if (ctx.datasetIndex === 0) return `Market Rent: ${formatINR(ctx.parsed.y)} (+${formatINR(saving)} vs lease)`; return `Lease Cost: ${formatINR(ctx.parsed.y)}`; } } }
+                },
+                scales: {
+                    y: { title: { display: true, text: 'Monthly Cost', color: colors.muted }, ticks: { callback: v => formatINR(v), color: colors.muted }, grid: { color: colors.border } },
+                    y1: { title: { display: true, text: 'Cumulative Net Savings', color: colors.muted }, position: 'right', ticks: { callback: v => formatINR(v), color: colors.muted }, grid: { drawOnChartArea: false } },
+                    x: { ticks: { color: colors.muted, maxTicksLimit: 12 }, grid: { display: false } }
+                }
+            }
+        });
+    } else {
+        rentProjectionChart.data.labels = rp.months;
+        rentProjectionChart.data.datasets[0].data = rp.monthlyRent;
+        rentProjectionChart.data.datasets[1].data = rp.leaseConstant;
+        rentProjectionChart.data.datasets[2].data = rp.cumulativeSavings;
+        rentProjectionChart.update();
+    }
+
+    // 7. SENSITIVITY TORNADO CHART
+    if (!sensitivityHeatmapChart) {
+        sensitivityHeatmapChart = new Chart($('sensitivityHeatmapChart'), {
+            type: 'bar',
+            data: {
+                labels: data.sensitivityHeatmap.factors,
+                datasets: [
+                    { label: 'Less Savings', data: data.sensitivityHeatmap.negativeImpact, backgroundColor: 'rgba(255,77,77,0.75)', borderRadius: [6,0,0,6], borderWidth: 0 },
+                    { label: 'More Savings', data: data.sensitivityHeatmap.positiveImpact, backgroundColor: 'rgba(46,204,113,0.75)', borderRadius: [0,6,6,0], borderWidth: 0 }
+                ]
+            },
+            options: {
+                indexAxis: 'y', responsive: true, maintainAspectRatio: false,
+                plugins: {
+                    legend: { display: true, position: 'top', labels: { color: colors.text, usePointStyle: true, padding: 16 } },
+                    datalabels: { display: false },
+                    tooltip: { callbacks: { label: ctx => `${ctx.dataset.label}: ${formatINR(Math.abs(ctx.raw))}` } }
+                },
+                scales: {
+                    x: { stacked: true, type: 'linear', ticks: { callback: v => v !== 0 ? formatINR(Math.abs(v)) : '₹0', color: colors.muted, font: { size: 10 } }, grid: { color: colors.border } },
+                    y: { stacked: true, ticks: { color: colors.muted, font: { size: 11, weight: '600' }, padding: 12 }, grid: { display: false } }
+                }
+            },
+            plugins: [
+                {
+                    id: 'tornadoLabels',
+                    afterDatasetsDraw(chart) {
+                        const { ctx, data, chartArea: { left, right } } = chart;
+                        const MARGIN = 8;
+                        ctx.font = 'bold 11px -apple-system, BlinkMacSystemFont, sans-serif';
+                        ctx.textBaseline = 'middle';
+                        data.datasets.forEach((dataset, datasetIndex) => {
+                            dataset.data.forEach((value, index) => {
+                                if (!value) return;
+                                const meta = chart.getDatasetMeta(datasetIndex);
+                                const bar = meta.data[index];
+                                if (!bar) return;
+                                const label = formatINR(Math.abs(value));
+                                if (datasetIndex === 0) { ctx.textAlign = 'left'; ctx.fillStyle = 'rgba(255,77,77,0.95)'; ctx.fillText(label, left + MARGIN, bar.y); }
+                                else { ctx.textAlign = 'right'; ctx.fillStyle = 'rgba(46,204,113,0.95)'; ctx.fillText(label, right - MARGIN, bar.y); }
+                            });
+                        });
+                    }
+                },
+                {
+                    id: 'zeroLine',
+                    afterDatasetsDraw(chart) {
+                        const { ctx, chartArea: { left, top, height } } = chart;
+                        const x = left + chart.scales.x.getPixelForValue(0);
+                        ctx.strokeStyle = colors.primary; ctx.lineWidth = 2; ctx.setLineDash([]);
+                        ctx.beginPath(); ctx.moveTo(x, top); ctx.lineTo(x, top + height); ctx.stroke();
+                    }
+                }
+            ]
+        });
+        lastSensitivityData = data.sensitivityHeatmap;
+    } else {
+        sensitivityHeatmapChart.data.labels = data.sensitivityHeatmap.factors;
+        sensitivityHeatmapChart.data.datasets[0].data = data.sensitivityHeatmap.negativeImpact;
+        sensitivityHeatmapChart.data.datasets[1].data = data.sensitivityHeatmap.positiveImpact;
+        lastSensitivityData = data.sensitivityHeatmap;
+        sensitivityHeatmapChart.update();
+    }
+
+    // 8. AMORTIZATION
+    if (!amortizationChart) {
+        amortizationChart = new Chart($('amortizationChart'), {
+            type: 'bar',
+            data: {
+                labels: data.amortization.months,
+                datasets: [
+                    { label: 'Principal', type: 'bar', data: data.amortization.principal, backgroundColor: 'rgba(46,204,113,0.8)', borderWidth: 0, stack: 'Stack 0' },
+                    { label: 'Interest', type: 'bar', data: data.amortization.interest, backgroundColor: 'rgba(255,77,77,0.8)', borderWidth: 0, stack: 'Stack 0' },
+                    { label: 'Remaining Balance', type: 'line', data: data.amortization.balance, borderColor: 'rgba(77,179,255,1)', backgroundColor: 'transparent', borderWidth: 3, fill: false, tension: 0.4, pointRadius: 0, pointHoverRadius: 6, yAxisID: 'y1' }
+                ]
+            },
+            options: {
+                responsive: true, maintainAspectRatio: false,
+                interaction: { mode: 'index', intersect: false },
+                plugins: {
+                    legend: { display: true, position: 'top', labels: { color: colors.text } },
+                    datalabels: { display: false },
+                    tooltip: { callbacks: { label: ctx => `${ctx.dataset.label}: ${formatINR(ctx.parsed.y ?? ctx.raw)}` } }
+                },
+                scales: {
+                    y: { stacked: true, title: { display: true, text: 'Monthly EMI Breakdown' }, ticks: { callback: v => formatINR(v), color: colors.muted }, grid: { color: colors.border } },
+                    y1: { type: 'linear', position: 'right', title: { display: true, text: 'Remaining Loan Balance' }, ticks: { callback: v => formatINR(v), color: colors.muted }, grid: { drawOnChartArea: false } },
+                    x: { ticks: { color: colors.muted }, grid: { display: false } }
+                }
+            }
+        });
+    } else {
+        amortizationChart.data.labels = data.amortization.months;
+        amortizationChart.data.datasets[0].data = data.amortization.principal;
+        amortizationChart.data.datasets[1].data = data.amortization.interest;
+        amortizationChart.data.datasets[2].data = data.amortization.balance;
+        amortizationChart.update();
+    }
+}
+
+/* ================= SUMMARY PANEL ================= */
+function updateSummary() {
+    const deposit = num('leaseAmount'), loan = num('loanAmount');
+    const ownFunds = Math.max(0, deposit - loan);
+    const rent = num('marketRent'), tenure = num('leaseTenure') / 12;
+    $('summaryAsset').innerText = formatINR(deposit);
+    $('summaryLoan').innerText = formatINR(loan);
+    $('summaryOwnFunds').innerText = formatINR(ownFunds);
+    $('summaryRent').innerText = formatINR(rent);
+    $('summaryTerm').innerText = Math.round(tenure * 10) / 10 + ' yrs';
+    // Live own-funds badge
+    const badge = $('ownFundsValue');
+    if (badge) badge.innerText = formatINR(ownFunds);
+}
+
+/* ================= VERDICT BANNER ================= */
+function updateVerdictBanner(monthlySavings, termSavings, score, tenure, confidence) {
+    const banner = $('verdictBanner'), headline = $('verdictHeadline'), body = $('verdictBody');
+    const mSavEl = $('verdictMonthlySaving'), tSavEl = $('verdictTermSaving');
+    const leaseBetter = monthlySavings > 0;
+    const neutral = Math.abs(monthlySavings) < 500;
+    const cls = neutral ? 'neutral' : (leaseBetter ? 'lease-wins' : 'rent-wins');
+    const valCls = neutral ? 'neutral' : (leaseBetter ? 'positive' : 'negative');
+    banner.className = 'verdict-banner ' + cls;
+    const tenureYrs = Math.round(tenure / 12 * 10) / 10;
+    const confRound = Math.round(confidence);
+    const absMonthly = formatINR(Math.abs(monthlySavings));
+    const absTerm = formatINR(Math.abs(termSavings));
+    if (neutral) {
+        headline.textContent = '⚖️ It\'s a close call — consider lifestyle & flexibility';
+        body.innerHTML = `Monthly costs are nearly equal (<strong>${absMonthly}/mo difference</strong>).`;
+    } else if (leaseBetter) {
+        headline.textContent = score >= 80 ? '🏆 Lease is the clear winner — strongly recommended' : '✅ Leasing has the economic edge';
+        body.innerHTML = `Based on your inputs, leasing saves you <strong>${absMonthly}/month</strong> — that's <strong>${absTerm}</strong> over ${tenureYrs} years. Confidence: <strong>${confRound}%</strong>.`;
+    } else {
+        headline.textContent = score <= 20 ? '🔴 Renting is significantly more economical' : '⚠️ Renting has the economic edge';
+        body.innerHTML = `Renting saves you <strong>${absMonthly}/month</strong> vs leasing — a difference of <strong>${absTerm}</strong> over ${tenureYrs} years.`;
+    }
+    mSavEl.className = 'verdict-stat-value ' + valCls;
+    mSavEl.textContent = (leaseBetter ? '+' : '-') + absMonthly + '/mo';
+    tSavEl.className = 'verdict-stat-value ' + valCls;
+    tSavEl.textContent = (leaseBetter ? '+' : '-') + absTerm;
+}
+
+/* ================= VALIDATION ================= */
+function validateInputs(vals) {
+    const errors = [], warnings = [];
+    const { LEASE_AMOUNT, LOAN_AMOUNT, LOAN_TENURE, LEASE_TENURE, MARKET_RENT,
+            OPP_RATE_ANNUAL, RENT_INCREMENT, WITHHOLDING, VOLATILITY, LOAN_RATE_ANNUAL } = vals;
+
+    // Hard errors — block calculation
+    if (LOAN_AMOUNT > LEASE_AMOUNT)
+        errors.push(`Loan (${formatINR(LOAN_AMOUNT)}) exceeds the total deposit (${formatINR(LEASE_AMOUNT)}). You cannot borrow more than the deposit you are paying.`);
+    if (LOAN_TENURE > LEASE_TENURE)
+        errors.push(`Loan tenure (${LOAN_TENURE} mo) is longer than lease tenure (${LEASE_TENURE} mo). Loan has been capped to lease tenure automatically.`);
+    if (LEASE_TENURE < 6)
+        errors.push('Lease tenure must be at least 6 months for a meaningful comparison.');
+    if (MARKET_RENT <= 0)
+        errors.push('Market rent must be greater than zero.');
+
+    // Soft warnings — unusual but allowed
+    if (OPP_RATE_ANNUAL > 35)
+        warnings.push(`Opportunity cost rate of ${OPP_RATE_ANNUAL}% is very high. Verify this reflects your actual alternative return.`);
+    if (RENT_INCREMENT * 100 > 15)
+        warnings.push(`Rent growth of ${RENT_INCREMENT * 100}%/year is unusually high. Over long tenures this compounds dramatically — double-check your market assumption.`);
+    if (WITHHOLDING > 0.3)
+        warnings.push(`Withholding of ${Math.round(WITHHOLDING * 100)}% is very high. Verify this is realistic for your property type and agreement.`);
+    if (LOAN_RATE_ANNUAL > 20)
+        warnings.push(`Interest rate of ${LOAN_RATE_ANNUAL}% is above typical institutional lending. Consider if this is a formal loan or an informal arrangement.`);
+    if (VOLATILITY > 0.4)
+        warnings.push(`Return volatility of ${Math.round(VOLATILITY * 100)}% is extremely high. This significantly reduces your certainty-equivalent opportunity rate.`);
+    if (LEASE_AMOUNT > 0 && LOAN_AMOUNT / LEASE_AMOUNT > 0.95)
+        warnings.push('Loan covers more than 95% of lease amount — your own funds contribution is very small. Ensure this reflects your actual funding structure.');
+
+    return { errors, warnings };
+}
+
+function renderValidation(errors, warnings) {
+    const errEl = $('validationErrors'), warnEl = $('validationWarnings');
+    if (errors.length > 0) {
+        errEl.innerHTML = `⚠️ <strong>Please fix these inputs:</strong><ul>${errors.map(e => `<li>${e}</li>`).join('')}</ul>`;
+        errEl.classList.add('show');
+    } else { errEl.classList.remove('show'); errEl.innerHTML = ''; }
+
+    if (warnings.length > 0) {
+        warnEl.innerHTML = `💡 <strong>Unusual inputs — review before concluding:</strong><ul>${warnings.map(w => `<li>${w}</li>`).join('')}</ul>`;
+        warnEl.classList.add('show');
+    } else { warnEl.classList.remove('show'); warnEl.innerHTML = ''; }
+}
+
+/* ================= MAIN CALCULATION ================= */
+function calculate() {
+    try {
+        updateSummary();
+
+        const LEASE_AMOUNT = num('leaseAmount');
+        const LOAN_AMOUNT = num('loanAmount');
+        const OWN_FUNDS = Math.max(0, LEASE_AMOUNT - LOAN_AMOUNT);
+        const LOAN_RATE_ANNUAL = num('loanRate');
+        const LOAN_TENURE = num('loanTenure');
+        const LEASE_TENURE = num('leaseTenure');
+        const WITHHOLDING = num('withholding') / 100;
+        const REFUND_DELAY = num('refundDelay');
+        const MAINTENANCE = num('maintenance');
+        const MARKET_RENT = num('marketRent');
+        const RENT_DEPOSIT = num('rentDeposit');
+        const DEPOSIT_REFUND_DELAY = num('depositRefundDelay');
+        const OPP_RATE_ANNUAL = num('oppRate');
+        const RISK_PREMIUM = num('riskPremium') / 100;
+        const RENT_INCREMENT = num('rentIncrement') / 100;
+        const FLEXIBILITY_PREMIUM = num('flexibilityPremium');
+        const INFLATION_ANNUAL = num('inflationRate');
+        const LIQUIDITY_ANNUAL = num('liquidityPremium');
+        const VOLATILITY = num('returnVol') / 100;
+
+        if (LEASE_AMOUNT <= 0 || LEASE_TENURE <= 0 || LOAN_TENURE <= 0 || MARKET_RENT <= 0) return;
+
+        // ── LOAN TENURE CAP (enforce silently + warn) ──────────────────────────
+        const EFFECTIVE_LOAN_TENURE = Math.min(LOAN_TENURE, LEASE_TENURE);
+        if (LOAN_TENURE > LEASE_TENURE) {
+            const loanTenureInput = $('loanTenure');
+            const loanTenureRange = $('loanTenureRange');
+            if (loanTenureInput) loanTenureInput.value = LEASE_TENURE;
+            if (loanTenureRange) { loanTenureRange.value = LEASE_TENURE; loanTenureRange.setAttribute('aria-valuenow', LEASE_TENURE); }
+            const lbl = $('loanTenureLabel'); if (lbl) lbl.innerText = LEASE_TENURE;
+        }
+
+        // ── VALIDATION ─────────────────────────────────────────────────────────
+        const validationVals = { LEASE_AMOUNT, LOAN_AMOUNT, LOAN_TENURE, LEASE_TENURE,
+            MARKET_RENT, OPP_RATE_ANNUAL, RENT_INCREMENT, WITHHOLDING, VOLATILITY, LOAN_RATE_ANNUAL };
+        const { errors, warnings } = validateInputs(validationVals);
+        renderValidation(errors, warnings);
+        if (errors.some(e => e.includes('exceeds the total deposit') || e.includes('at least 6 months') || e.includes('greater than zero'))) return;
+
+        const LOAN_RATE_MONTHLY = (LOAN_RATE_ANNUAL / 100) / 12;
+        const OPP_RATE_NOMINAL = (OPP_RATE_ANNUAL / 100) / 12;
+        const INFLATION_MONTHLY = (INFLATION_ANNUAL / 100) / 12;
+        const LIQUIDITY_MONTHLY = (LIQUIDITY_ANNUAL / 100) / 12;
+
+        const REAL_OPP_RATE = ((1 + OPP_RATE_NOMINAL) / (1 + INFLATION_MONTHLY)) - 1;
+
+        // =====================================================================
+        // FIX 1: Volatility penalty converted to monthly scale
+        // Was: 0.5 * VOLATILITY * VOLATILITY  (annual applied to monthly rate — 23× too large)
+        // Now: (0.5 * VOLATILITY * VOLATILITY) / 12  (correct monthly certainty-equivalent penalty)
+        // =====================================================================
+        const VOLATILITY_PENALTY = (0.5 * VOLATILITY * VOLATILITY) / 12;
+        const CE_REAL_OPP_RATE = Math.max(0, REAL_OPP_RATE - VOLATILITY_PENALTY);
+
+        const LOCKED_FUNDS_RATE = CE_REAL_OPP_RATE + LIQUIDITY_MONTHLY;
+        const WITHHOLDING_CLAMPED = Math.min(1, Math.max(0, WITHHOLDING));
+        const effectiveLoanMonths = EFFECTIVE_LOAN_TENURE;
+
+        const EMI = emi(LOAN_AMOUNT, LOAN_RATE_MONTHLY, effectiveLoanMonths);
+        const totalInterestPaid = (EMI * effectiveLoanMonths) - LOAN_AMOUNT;
+
+        const withholdingLoss = LEASE_AMOUNT * WITHHOLDING_CLAMPED;
+        const depositRefundable = LEASE_AMOUNT * (1 - WITHHOLDING_CLAMPED);
+        const ownFundsOppCost = OWN_FUNDS * (Math.pow(1 + LOCKED_FUNDS_RATE, LEASE_TENURE) - 1);
+        const delayCost = REFUND_DELAY > 0 ? depositRefundable * (Math.pow(1 + LOCKED_FUNDS_RATE, REFUND_DELAY) - 1) : 0;
+        const totalMaintenanceCost = MAINTENANCE * LEASE_TENURE;
+        const totalLeaseCostWithoutRisk = totalInterestPaid + withholdingLoss + ownFundsOppCost + delayCost + totalMaintenanceCost;
+        const riskCost = LEASE_AMOUNT * RISK_PREMIUM * (LEASE_TENURE / 12);
+        const riskAdjustedLeaseCost = totalLeaseCostWithoutRisk + riskCost;
+        const monthlyLeaseCost = riskAdjustedLeaseCost / LEASE_TENURE;
+
+        let totalRentPaidOverLeaseTerm = 0;
+        for (let m = 1; m <= LEASE_TENURE; m++) {
+            const yearIndex = Math.floor((m - 1) / 12);
+            totalRentPaidOverLeaseTerm += MARKET_RENT * Math.pow(1 + RENT_INCREMENT, yearIndex);
+        }
+
+        const rentDepositOppCost = RENT_DEPOSIT * (Math.pow(1 + CE_REAL_OPP_RATE, LEASE_TENURE) - 1);
+        const rentDepositDelayOppCost = DEPOSIT_REFUND_DELAY > 0 ? RENT_DEPOSIT * (Math.pow(1 + CE_REAL_OPP_RATE, DEPOSIT_REFUND_DELAY) - 1) : 0;
+        const totalFlexibilityCost = Math.min(FLEXIBILITY_PREMIUM * LEASE_TENURE, totalRentPaidOverLeaseTerm + rentDepositOppCost + rentDepositDelayOppCost);
+        const totalRentCostOverLeaseTerm = Math.max(1, totalRentPaidOverLeaseTerm + rentDepositOppCost + rentDepositDelayOppCost - totalFlexibilityCost);
+        const monthlyRentCost = totalRentCostOverLeaseTerm / LEASE_TENURE;
+
+        const savingFraction = (totalRentCostOverLeaseTerm - riskAdjustedLeaseCost) / Math.max(totalRentCostOverLeaseTerm, riskAdjustedLeaseCost);
+        const score = Math.max(0, Math.min(100, 50 + 50 * savingFraction));
+        const monthlySavings = monthlyRentCost - monthlyLeaseCost;
+        const yearlySavings = monthlySavings * 12;
+        const termSavings = monthlySavings * LEASE_TENURE;
+        const confidence = Math.max(0, Math.min(100, Math.abs(savingFraction) * 100));
+
+        let color = '#f1c40f', interpretation = '📊 Balanced decision - Consider other factors';
+        if (score >= 85) { color = '#1abc9c'; interpretation = '🎯 Excellent Leasing Advantage - Highly favorable to lease'; }
+        else if (score >= 65) { color = '#2ecc71'; interpretation = '✅ Strong Leasing Advantage - Leasing is recommended'; }
+        else if (score >= 50) { color = '#f1c40f'; interpretation = '📊 Marginal Leasing Advantage - Consider flexibility & other factors'; }
+        else if (score >= 35) { color = '#ff9f43'; interpretation = '⚠️ Slight Renting Advantage - Renting is marginally better'; }
+        else { color = '#ff4d4d'; interpretation = '❌ Strong Renting Advantage - Renting is significantly more economical'; }
+
+        const gaugeDegrees = score * 3.6;
+        $('gauge').style.background = `conic-gradient(${color} ${gaugeDegrees}deg, #1a2a38 ${gaugeDegrees}deg)`;
+        $('gauge').setAttribute('aria-valuenow', Math.round(score));
+        $('gauge').setAttribute('aria-label', `Decision score: ${Math.round(score)} out of 100. ${interpretation}`);
+        $('dial').style.color = color;
+        $('dial').innerText = Math.round(score);
+        $('interpretation').innerText = interpretation;
+
+        updateDirectionIndicators(monthlySavings);
+        updateAllSliderAria();
+
+        const animateCounter = (el, start, end, dur = 800) => {
+            const t0 = Date.now();
+            const tick = () => {
+                const p = Math.min((Date.now() - t0) / dur, 1);
+                const ease = p < 0.5 ? 2*p*p : -1+(4-2*p)*p;
+                const val = start + (end - start) * ease;
+                el.textContent = el.textContent.includes('%') ? Math.round(val) + '%' : formatINR(val);
+                if (p < 1) requestAnimationFrame(tick);
+            };
+            tick();
+        };
+
+        animateCounter($('mEMI'), cleanNumber($('mEMI').textContent), EMI);
+        animateCounter($('mMaintenance'), cleanNumber($('mMaintenance').textContent), MAINTENANCE);
+        animateCounter($('mSave'), cleanNumber($('mSave').textContent), monthlySavings);
+        animateCounter($('ySave'), cleanNumber($('ySave').textContent), yearlySavings);
+        animateCounter($('tSave'), cleanNumber($('tSave').textContent), termSavings);
+        animateCounter($('mEffective'), cleanNumber($('mEffective').textContent), monthlyLeaseCost);
+        $('confidence').textContent = Math.round(confidence) + '%';
+
+        updateVerdictBanner(monthlySavings, termSavings, score, LEASE_TENURE, confidence);
+
+        // --- CHART DATA ---
+        const tcoData = {
+            labels: ['Interest Paid', 'Withholding Loss', 'Own Funds Opp Cost', 'Refund Delay Cost', 'Total Maintenance', 'Net Lease Risk Cost'],
+            values: [Math.max(0,totalInterestPaid), Math.max(0,withholdingLoss), Math.max(0,ownFundsOppCost), Math.max(0,delayCost), Math.max(0,totalMaintenanceCost), Math.max(0,riskCost)]
+        };
+
+        const monthlyData = { emi: EMI, maintenance: MAINTENANCE, rent: MARKET_RENT, riskRent: monthlyLeaseCost, advantage: monthlySavings };
+
+        let cumulativeLeaseCosts = [], cumulativeRentCosts = [], cumulativeMonths = [], cL = 0, cR = 0;
+        for (let m = 1; m <= LEASE_TENURE; m++) {
+            cL += monthlyLeaseCost;
+            cR += MARKET_RENT * Math.pow(1 + RENT_INCREMENT, Math.floor((m-1)/12));
+            cumulativeLeaseCosts.push(cL); cumulativeRentCosts.push(cR);
+            cumulativeMonths.push('Y' + (Math.floor((m-1)/12)+1) + 'M' + ((m%12)||12));
+        }
+
+        const sensitivityLeaseAdvantage = [], sensitivityRentAdvantage = [];
+        for (let rentChange = -15; rentChange <= 15; rentChange += 3) {
+            const adjRent = MARKET_RENT * (1 + rentChange / 100);
+            const adjustedSavings = adjRent - monthlyLeaseCost;
+            if (adjustedSavings > 0) sensitivityLeaseAdvantage.push({ x: rentChange, y: rentChange, r: Math.min(30, Math.sqrt(Math.abs(adjustedSavings)/100)) });
+            else sensitivityRentAdvantage.push({ x: rentChange, y: rentChange, r: Math.min(30, Math.sqrt(Math.abs(adjustedSavings)/100)) });
+        }
+
+        const compositionData = {
+            labels: ['Interest', 'Withholding', 'Own Funds Opp', 'Refund Delay', 'Maintenance', 'Net Lease Risk'],
+            values: [Math.max(1,totalInterestPaid), Math.max(1,withholdingLoss), Math.max(1,ownFundsOppCost), Math.max(1,delayCost), Math.max(1,totalMaintenanceCost), Math.max(1,riskCost)]
+        };
+
+        let rentMonthlyRent = [], leaseConstantRent = [], cumulativeSavings = [], rentMonths = [], rentT = 0, leaseT = 0, crossoverMonth = null;
+        for (let m = 1; m <= LEASE_TENURE; m++) {
+            const mr = MARKET_RENT * Math.pow(1 + RENT_INCREMENT, Math.floor((m-1)/12));
+            rentT += mr; leaseT += monthlyLeaseCost;
+            rentMonthlyRent.push(mr); leaseConstantRent.push(monthlyLeaseCost);
+            cumulativeSavings.push(rentT - leaseT);
+            rentMonths.push('M' + m);
+            if (crossoverMonth === null && mr > monthlyLeaseCost) crossoverMonth = m;
+        }
+
+        // Sensitivity tornado base
+        const baseMonthlySavings = monthlyRentCost - monthlyLeaseCost;
+        const impactFactors = [];
+
+        // Interest Rate (higher rate = higher lease cost = less savings)
+        {
+            const upRate = LOAN_RATE_MONTHLY * 1.1, downRate = LOAN_RATE_MONTHLY * 0.9;
+            const upEMI = emi(LOAN_AMOUNT, upRate, effectiveLoanMonths);
+            const downEMI = emi(LOAN_AMOUNT, downRate, effectiveLoanMonths);
+            const upSavings = monthlyRentCost - (monthlyLeaseCost + (upEMI - EMI));
+            const downSavings = monthlyRentCost - (monthlyLeaseCost - (EMI - downEMI));
+            impactFactors.push({ name: 'Interest Rate', negative: baseMonthlySavings - upSavings, positive: downSavings - baseMonthlySavings });
+        }
+
+        // FIX 2a: Market Rent — higher rent HELPS leasing; adverse = -10%, favorable = +10%
+        {
+            const upRent = MARKET_RENT * 1.1, downRent = MARKET_RENT * 0.9;
+            const upSavings = upRent - monthlyLeaseCost;
+            const downSavings = downRent - monthlyLeaseCost;
+            impactFactors.push({
+                name: 'Market Rent',
+                negative: baseMonthlySavings - downSavings,  // FIX: lower rent = less savings
+                positive: upSavings - baseMonthlySavings      // FIX: higher rent = more savings
+            });
+        }
+
+        // Maintenance (higher = higher lease cost = less savings)
+        {
+            const upMaint = MAINTENANCE * 1.1, downMaint = MAINTENANCE * 0.9;
+            const upSavings = monthlyRentCost - (monthlyLeaseCost + (upMaint - MAINTENANCE));
+            const downSavings = monthlyRentCost - (monthlyLeaseCost - (MAINTENANCE - downMaint));
+            impactFactors.push({ name: 'Maintenance', negative: baseMonthlySavings - upSavings, positive: downSavings - baseMonthlySavings });
+        }
+
+        // Loan Amount (higher = higher EMI = less savings)
+        {
+            const upLoan = LOAN_AMOUNT * 1.1, downLoan = LOAN_AMOUNT * 0.9;
+            const upEMI = emi(upLoan, LOAN_RATE_MONTHLY, effectiveLoanMonths);
+            const downEMI = emi(downLoan, LOAN_RATE_MONTHLY, effectiveLoanMonths);
+            const upSavings = monthlyRentCost - (monthlyLeaseCost + (upEMI - EMI));
+            const downSavings = monthlyRentCost - (monthlyLeaseCost - (EMI - downEMI));
+            impactFactors.push({ name: 'Loan Amount', negative: baseMonthlySavings - upSavings, positive: downSavings - baseMonthlySavings });
+        }
+
+        // FIX 2b: Rent Growth — higher growth HELPS leasing; adverse = -10%, favorable = +10%
+        {
+            const upGrowth = RENT_INCREMENT * 1.1, downGrowth = RENT_INCREMENT * 0.9;
+            let upRentTotal = 0, downRentTotal = 0, baseRentTotal = 0;
+            for (let m = 1; m <= LEASE_TENURE; m++) {
+                const yr = Math.floor((m-1)/12);
+                upRentTotal += MARKET_RENT * Math.pow(1 + upGrowth, yr);
+                downRentTotal += MARKET_RENT * Math.pow(1 + downGrowth, yr);
+                baseRentTotal += MARKET_RENT * Math.pow(1 + RENT_INCREMENT, yr);
+            }
+            const upMonthlyRent = upRentTotal / LEASE_TENURE;
+            const downMonthlyRent = downRentTotal / LEASE_TENURE;
+            const baseMonthlyRent = baseRentTotal / LEASE_TENURE;
+            const upSavings = (monthlyRentCost * upMonthlyRent / baseMonthlyRent) - monthlyLeaseCost;
+            const downSavings = (monthlyRentCost * downMonthlyRent / baseMonthlyRent) - monthlyLeaseCost;
+            impactFactors.push({
+                name: 'Rent Growth',
+                negative: baseMonthlySavings - downSavings,  // FIX: lower growth = less savings
+                positive: upSavings - baseMonthlySavings      // FIX: higher growth = more savings
+            });
+        }
+
+        impactFactors.sort((a, b) => (Math.abs(b.negative) + Math.abs(b.positive)) - (Math.abs(a.negative) + Math.abs(a.positive)));
+
+        const sensitivityHeatmapData = {
+            factors: impactFactors.map(f => f.name),
+            negativeImpact: impactFactors.map(f => -f.negative),
+            positiveImpact: impactFactors.map(f => f.positive)
+        };
+
+        // Amortization
+        const amortMonths = [], amortPrincipal = [], amortInterest = [], amortBalance = [];
+        let remainingBalance = LOAN_AMOUNT;
+        for (let m = 1; m <= effectiveLoanMonths && m <= LEASE_TENURE; m++) {
+            const interestPayment = remainingBalance * LOAN_RATE_MONTHLY;
+            const principalPayment = EMI - interestPayment;
+            remainingBalance = Math.max(0, remainingBalance - principalPayment);
+            amortMonths.push('M' + m); amortPrincipal.push(principalPayment);
+            amortInterest.push(interestPayment); amortBalance.push(remainingBalance);
+        }
+
+        initCharts({
+            tco: tcoData, monthly: monthlyData,
+            cumulative: { months: cumulativeMonths, leaseCosts: cumulativeLeaseCosts, buyCosts: cumulativeRentCosts },
+            sensitivity: { leaseAdvantage: sensitivityLeaseAdvantage, rentAdvantage: sensitivityRentAdvantage },
+            composition: compositionData,
+            rentProjection: { months: rentMonths, monthlyRent: rentMonthlyRent, leaseConstant: leaseConstantRent, cumulativeSavings, crossoverMonth },
+            sensitivityHeatmap: sensitivityHeatmapData,
+            amortization: { months: amortMonths, principal: amortPrincipal, interest: amortInterest, balance: amortBalance }
+        });
+
+        updateComparisonTable(EMI, MAINTENANCE, monthlyLeaseCost, monthlyRentCost, monthlySavings, termSavings, LEASE_TENURE);
+        lastCalculationState = { monthlyLeaseCost, monthlyRentCost, LEASE_TENURE };
+
+    } catch (error) { console.error('Calculation error:', error); }
+}
+
+function updateComparisonTable(emi, maintenance, economicCost, rentCost, advantage, termAdvantage, leaseTenure) {
+    const tbody = $('comparisonBody');
+    const leaseBetter = advantage > 0;
+    const actualLeaseOutflow = emi + maintenance;
+    tbody.innerHTML = `
+        <tr><td><strong>Monthly EMI</strong></td><td>${formatINR(emi)}</td><td>-</td><td>-</td></tr>
+        <tr><td><strong>Monthly Maintenance</strong></td><td>${formatINR(maintenance)}</td><td>-</td><td>-</td></tr>
+        <tr><td><strong>Actual Monthly Lease Outflow</strong></td><td>${formatINR(actualLeaseOutflow)}</td><td>-</td><td>-</td></tr>
+        <tr><td><strong>Monthly Rent</strong></td><td>-</td><td>${formatINR(rentCost)}</td><td>-</td></tr>
+        <tr><td><strong>Monthly Cost (Economic)</strong></td>
+            <td class="${leaseBetter ? 'metric-positive' : 'metric-negative'}">${formatINR(economicCost)}</td>
+            <td class="${leaseBetter ? 'metric-negative' : 'metric-positive'}">${formatINR(rentCost)}</td>
+            <td class="${advantage >= 0 ? 'metric-positive' : 'metric-negative'}">${formatINR(Math.abs(advantage))}</td></tr>
+        <tr><td><strong>Annual Impact</strong></td>
+            <td class="${leaseBetter ? 'metric-positive' : 'metric-negative'}">${formatINR(economicCost * 12)}</td>
+            <td class="${leaseBetter ? 'metric-negative' : 'metric-positive'}">${formatINR(rentCost * 12)}</td>
+            <td class="${advantage >= 0 ? 'metric-positive' : 'metric-negative'}">${formatINR(Math.abs(advantage) * 12)}</td></tr>
+        <tr><td><strong>Lease Term Total</strong></td>
+            <td class="${leaseBetter ? 'metric-positive' : 'metric-negative'}">${formatINR(economicCost * leaseTenure)}</td>
+            <td class="${leaseBetter ? 'metric-negative' : 'metric-positive'}">${formatINR(rentCost * leaseTenure)}</td>
+            <td class="${advantage >= 0 ? 'metric-positive' : 'metric-negative'}">${formatINR(Math.abs(termAdvantage))}</td></tr>
+    `;
+}
+
+/* ================= SENSITIVITY MODE SWITCHING ================= */
+let currentSensitivityMode = 'overview', lastSensitivityData = null;
+
+function switchSensitivityMode(factor) {
+    if (!factor) {
+        $('sensitivityOverviewMode').style.display = 'block';
+        $('sensitivityInteractiveMode').style.display = 'none';
+        $('sensitivityTitle').innerText = 'What Changes Your Monthly Savings Most';
+        document.querySelectorAll('.sensitivity-chip').forEach(c => c.classList.remove('active'));
+        if (lastSensitivityData && sensitivityHeatmapChart) {
+            sensitivityHeatmapChart.destroy(); sensitivityHeatmapChart = null;
+            // Recreate from lastSensitivityData
+            const colors = getChartColors();
+            sensitivityHeatmapChart = new Chart($('sensitivityHeatmapChart'), {
+                type: 'bar',
+                data: { labels: lastSensitivityData.factors, datasets: [
+                    { label: 'Less Savings', data: lastSensitivityData.negativeImpact, backgroundColor: 'rgba(255,77,77,0.75)', borderRadius: [6,0,0,6], borderWidth: 0 },
+                    { label: 'More Savings', data: lastSensitivityData.positiveImpact, backgroundColor: 'rgba(46,204,113,0.75)', borderRadius: [0,6,6,0], borderWidth: 0 }
+                ]},
+                options: {
+                    indexAxis: 'y', responsive: true, maintainAspectRatio: false,
+                    plugins: { legend: { display: true, position: 'top', labels: { color: colors.text, usePointStyle: true, padding: 16 } }, datalabels: { display: false }, tooltip: { callbacks: { label: ctx => `${ctx.dataset.label}: ${formatINR(Math.abs(ctx.raw))}` } } },
+                    scales: { x: { stacked: true, type: 'linear', ticks: { callback: v => v !== 0 ? formatINR(Math.abs(v)) : '₹0', color: colors.muted, font: { size: 10 } }, grid: { color: colors.border } }, y: { stacked: true, ticks: { color: colors.muted, font: { size: 11, weight: '600' }, padding: 12 }, grid: { display: false } } }
+                }
+            });
+        }
+    } else {
+        $('sensitivityOverviewMode').style.display = 'none';
+        $('sensitivityInteractiveMode').style.display = 'block';
+        $('interactiveTitle').innerText = `Monthly Savings vs ${factor}`;
+        document.querySelectorAll('.sensitivity-chip').forEach(c => c.classList.toggle('active', c.innerText === factor));
+        const interactiveData = generateInteractiveSensitivity(factor);
+        updateInteractiveSensitivityChart(interactiveData);
+    }
+}
+
+function generateInteractiveSensitivity(factor) {
+    const points = [], range = 50, step = 5;
+    const baseMonthlyLeaseCost = lastCalculationState.monthlyLeaseCost;
+    const baseMonthlyRentCost = lastCalculationState.monthlyRentCost;
+    const LEASE_TENURE = lastCalculationState.LEASE_TENURE;
+
+    // Shared rent-side components that are independent of market rent and growth rate
+    const CE_REAL_OPP_RATE = (() => {
+        const OPP_RATE_NOMINAL = (num('oppRate') / 100) / 12;
+        const INFLATION_MONTHLY = (num('inflationRate') / 100) / 12;
+        const VOLATILITY = num('returnVol') / 100;
+        const REAL_OPP_RATE = ((1 + OPP_RATE_NOMINAL) / (1 + INFLATION_MONTHLY)) - 1;
+        const VOLATILITY_PENALTY = (0.5 * VOLATILITY * VOLATILITY) / 12;
+        return Math.max(0, REAL_OPP_RATE - VOLATILITY_PENALTY);
+    })();
+    const RENT_DEPOSIT = num('rentDeposit');
+    const DEPOSIT_REFUND_DELAY = num('depositRefundDelay');
+    const FLEXIBILITY_PREMIUM = num('flexibilityPremium');
+    const rentDepositOppCost = RENT_DEPOSIT * (Math.pow(1 + CE_REAL_OPP_RATE, LEASE_TENURE) - 1);
+    const rentDepositDelayOppCost = DEPOSIT_REFUND_DELAY > 0
+        ? RENT_DEPOSIT * (Math.pow(1 + CE_REAL_OPP_RATE, DEPOSIT_REFUND_DELAY) - 1) : 0;
+    const fixedRentSideCost = rentDepositOppCost + rentDepositDelayOppCost;
+
+    if (factor === 'Market Rent') {
+        // FIX: recompute totalRent with new rent value; deposit costs stay fixed
+        const baseRent = num('marketRent');
+        const baseGrowth = num('rentIncrement') / 100;
+        for (let change = -range; change <= range; change += step) {
+            const newRent = baseRent * (1 + change / 100);
+            let newRentTotal = 0;
+            for (let m = 1; m <= LEASE_TENURE; m++) {
+                newRentTotal += newRent * Math.pow(1 + baseGrowth, Math.floor((m-1)/12));
+            }
+            const totalFlex = Math.min(FLEXIBILITY_PREMIUM * LEASE_TENURE, newRentTotal + fixedRentSideCost);
+            const newMonthlyRentCost = Math.max(1, newRentTotal + fixedRentSideCost - totalFlex) / LEASE_TENURE;
+            points.push({ x: change, y: newMonthlyRentCost - baseMonthlyLeaseCost });
+        }
+    } else if (factor === 'Interest Rate') {
+        // Correct as-is: only EMI changes, own funds unaffected by rate
+        const baseRate = (num('loanRate') / 100) / 12;
+        const loanAmount = num('loanAmount'), loanTenure = num('loanTenure');
+        for (let change = -range; change <= range; change += step) {
+            const newRate = baseRate * (1 + change / 100);
+            const newEMI = emi(loanAmount, newRate, loanTenure);
+            const baseEMI = emi(loanAmount, baseRate, loanTenure);
+            const savings = baseMonthlyRentCost - (baseMonthlyLeaseCost + (newEMI - baseEMI));
+            points.push({ x: change, y: savings });
+        }
+    } else if (factor === 'Loan Amount') {
+        // FIX: recompute ownFundsOppCost delta alongside EMI delta
+        const baseRate = (num('loanRate') / 100) / 12;
+        const baseLoan = num('loanAmount');
+        const loanTenure = num('loanTenure');
+        const LEASE_AMOUNT = num('leaseAmount');
+        const LOCKED_FUNDS_RATE = CE_REAL_OPP_RATE + (num('liquidityPremium') / 100) / 12;
+        const baseOwnFunds = Math.max(0, LEASE_AMOUNT - baseLoan);
+        const baseOwnFundsOppCost = baseOwnFunds * (Math.pow(1 + LOCKED_FUNDS_RATE, LEASE_TENURE) - 1);
+        const baseEMI = emi(baseLoan, baseRate, loanTenure);
+        for (let change = -range; change <= range; change += step) {
+            const newLoan = Math.max(0, Math.min(baseLoan * (1 + change / 100), LEASE_AMOUNT));
+            const newEMI = emi(newLoan, baseRate, loanTenure);
+            const newOwnFunds = Math.max(0, LEASE_AMOUNT - newLoan);
+            const newOwnFundsOppCost = newOwnFunds * (Math.pow(1 + LOCKED_FUNDS_RATE, LEASE_TENURE) - 1);
+            const ownFundsOppDelta = (newOwnFundsOppCost - baseOwnFundsOppCost) / LEASE_TENURE;
+            const emiDelta = newEMI - baseEMI;
+            const savings = baseMonthlyRentCost - (baseMonthlyLeaseCost + emiDelta + ownFundsOppDelta);
+            points.push({ x: change, y: savings });
+        }
+    } else if (factor === 'Maintenance') {
+        // Correct as-is: linear, no interaction with other components
+        const baseMaint = num('maintenance');
+        for (let change = -range; change <= range; change += step) {
+            const savings = baseMonthlyRentCost - (baseMonthlyLeaseCost + (baseMaint * change / 100));
+            points.push({ x: change, y: savings });
+        }
+    } else if (factor === 'Rent Growth') {
+        // FIX: recompute totalRent with new growth; deposit costs stay fixed
+        const baseRent = num('marketRent');
+        const baseGrowth = num('rentIncrement') / 100;
+        for (let change = -range; change <= range; change += step) {
+            const newGrowth = Math.max(0, baseGrowth * (1 + change / 100));
+            let newRentTotal = 0;
+            for (let m = 1; m <= LEASE_TENURE; m++) {
+                newRentTotal += baseRent * Math.pow(1 + newGrowth, Math.floor((m-1)/12));
+            }
+            const totalFlex = Math.min(FLEXIBILITY_PREMIUM * LEASE_TENURE, newRentTotal + fixedRentSideCost);
+            const newMonthlyRentCost = Math.max(1, newRentTotal + fixedRentSideCost - totalFlex) / LEASE_TENURE;
+            points.push({ x: change, y: newMonthlyRentCost - baseMonthlyLeaseCost });
+        }
+    }
+    return { factor, points };
+}
+
+function updateInteractiveSensitivityChart(data) {
+    const colors = getChartColors();
+    if (sensitivityHeatmapChart) { sensitivityHeatmapChart.destroy(); sensitivityHeatmapChart = null; }
+    sensitivityHeatmapChart = new Chart($('sensitivityHeatmapChart'), {
+        type: 'line',
+        data: {
+            labels: data.points.map(p => p.x + '%'),
+            datasets: [{ label: 'Monthly Savings (₹)', data: data.points.map(p => p.y), borderColor: 'rgba(77,179,255,0.9)', backgroundColor: 'rgba(77,179,255,0.1)', borderWidth: 3, fill: true, tension: 0.4, pointRadius: 4, pointBackgroundColor: 'rgba(77,179,255,1)', pointHoverRadius: 7 }]
+        },
+        options: {
+            responsive: true, maintainAspectRatio: false,
+            interaction: { mode: 'index', intersect: false },
+            plugins: { legend: { display: true, position: 'top' }, datalabels: { display: false }, tooltip: { callbacks: { label: ctx => `Monthly Savings: ${formatINR(ctx.parsed.y)}` } } },
+            scales: {
+                x: { title: { display: true, text: `Change in ${data.factor}`, color: colors.muted }, ticks: { color: colors.muted }, grid: { color: colors.border } },
+                y: { title: { display: true, text: 'Monthly Savings (₹)', color: colors.muted }, ticks: { callback: v => formatINR(v), color: colors.muted }, grid: { color: colors.border } }
+            }
+        }
+    });
+}
+
+/* ================= INIT ================= */
+loadFromURL();
+calculate();
+
+/* ================= SECTION TOGGLE ================= */
+function toggleSection(btn, bodyId) {
+    const body = document.getElementById(bodyId);
+    const collapsed = body.classList.toggle('collapsed');
+    btn.classList.toggle('collapsed', collapsed);
+    btn.setAttribute('aria-expanded', !collapsed);
+}
+
+/* ================= RESET DEFAULTS ================= */
+const DEFAULTS = {
+    leaseAmount: 2000000, loanAmount: 1400000, loanRate: 11, maintenance: 4000,
+    withholding: 0, refundDelay: 0,
+    marketRent: 38000, rentDeposit: 0, depositRefundDelay: 0, rentIncrement: 5, flexibilityPremium: 0,
+    leaseTenure: 36, loanTenure: 24, oppRate: 11, riskPremium: 1.5,
+    inflationRate: 6, liquidityPremium: 2, returnVol: 14
+};
+
+function resetDefaults() {
+    SHARE_PARAMS.forEach(id => {
+        const el = document.getElementById(id);
+        const rangeEl = document.getElementById(id + 'Range');
+        if (el && DEFAULTS[id] !== undefined) { el.value = DEFAULTS[id]; }
+        if (rangeEl && DEFAULTS[id] !== undefined) { rangeEl.value = DEFAULTS[id]; rangeEl.setAttribute('aria-valuenow', DEFAULTS[id]); }
+    });
+    updateAllLabels();
+    calculate();
+    const toast = document.getElementById('shareToast');
+    toast.textContent = '↺ Reset to defaults!';
+    toast.classList.add('show');
+    setTimeout(() => { toast.classList.remove('show'); setTimeout(() => { toast.textContent = '✅ Link copied to clipboard!'; }, 400); }, 2000);
+}
+
+/* ================= PRESET SCENARIOS ================= */
+const PRESETS = {
+    'metro-apartment': {
+        // Bengaluru 2BHK: ₹20L lease deposit (equivalent to ~18 months rent), ₹14L personal loan
+        // No monthly rent paid under lease. Compared against ₹38K/month rental + 6-month deposit.
+        leaseAmount: 2000000, loanAmount: 1400000, loanRate: 11, maintenance: 4000,
+        withholding: 5, refundDelay: 2,
+        marketRent: 38000, rentDeposit: 228000, depositRefundDelay: 2,
+        rentIncrement: 8, flexibilityPremium: 3000,
+        leaseTenure: 36, loanTenure: 24,
+        oppRate: 11, riskPremium: 1.5, inflationRate: 6, liquidityPremium: 2, returnVol: 14
+    },
+    'high-street-retail': {
+        // Prime high-street shop: ₹50L lease deposit, ₹30L business OD, heavy fit-out withholding
+        // No monthly rent. Compared against ₹1.2L/month rental + 4-month deposit.
+        leaseAmount: 5000000, loanAmount: 3000000, loanRate: 13, maintenance: 12000,
+        withholding: 12, refundDelay: 3,
+        marketRent: 120000, rentDeposit: 480000, depositRefundDelay: 3,
+        rentIncrement: 8, flexibilityPremium: 2000,
+        leaseTenure: 60, loanTenure: 36,
+        oppRate: 22, riskPremium: 2.5, inflationRate: 6, liquidityPremium: 3, returnVol: 30
+    },
+    'office-space': {
+        // Grade-B office, 2000 sq ft: ₹30L lease deposit, ₹20L business OD
+        // No monthly rent. Compared against ₹1.5L/month rental (co-working alternative valued as flexibility).
+        leaseAmount: 3000000, loanAmount: 2000000, loanRate: 12, maintenance: 20000,
+        withholding: 6, refundDelay: 2,
+        marketRent: 150000, rentDeposit: 450000, depositRefundDelay: 1,
+        rentIncrement: 6, flexibilityPremium: 8000,
+        leaseTenure: 36, loanTenure: 24,
+        oppRate: 18, riskPremium: 1.5, inflationRate: 6, liquidityPremium: 2.5, returnVol: 22
+    },
+    'warehouse': {
+        // 10,000 sq ft warehouse, NH corridor: ₹75L lease deposit, ₹50L term loan
+        // No monthly rent. Compared against ₹2.5L/month rental + 3-month deposit.
+        leaseAmount: 7500000, loanAmount: 5000000, loanRate: 11.5, maintenance: 35000,
+        withholding: 3, refundDelay: 2,
+        marketRent: 250000, rentDeposit: 750000, depositRefundDelay: 2,
+        rentIncrement: 9, flexibilityPremium: 0,
+        leaseTenure: 60, loanTenure: 36,
+        oppRate: 20, riskPremium: 1.5, inflationRate: 6, liquidityPremium: 2, returnVol: 25
+    }
+};
+
+function loadPreset(key) {
+    const p = PRESETS[key];
+    if (!p) return;
+    SHARE_PARAMS.forEach(id => {
+        const el = document.getElementById(id);
+        const rangeEl = document.getElementById(id + 'Range');
+        if (el && p[id] !== undefined) el.value = p[id];
+        if (rangeEl && p[id] !== undefined) { rangeEl.value = p[id]; rangeEl.setAttribute('aria-valuenow', p[id]); }
+    });
+    updateAllLabels();
+    calculate();
+    const names = { 'metro-apartment': 'Metro Apartment', 'high-street-retail': 'High-Street Retail', 'office-space': 'Office Space', 'warehouse': 'Warehouse / Industrial' };
+    const toast = document.getElementById('shareToast');
+    toast.textContent = `✅ Loaded: ${names[key]} scenario`;
+    toast.classList.add('show');
+    setTimeout(() => { toast.classList.remove('show'); setTimeout(() => { toast.textContent = '✅ Link copied to clipboard!'; }, 400); }, 2500);
+}
+
+/* ================= KEYBOARD SHORTCUTS ================= */
+document.addEventListener('keydown', e => {
+    if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') return;
+    if (e.key === '?' || e.key === 'h') showGlobalHelp();
+    if (e.key === 'r' || e.key === 'R') resetDefaults();
+    if (e.key === 'Escape') closeHelpModal();
+});
+
+/* ================= UPDATE DIRECTION INDICATORS ================= */
+function updateDirectionIndicators(savings) {
+    const dirs = [
+        { id: 'mSaveDir', val: savings },
+        { id: 'ySaveDir', val: savings },
+        { id: 'tSaveDir', val: savings }
+    ];
+    dirs.forEach(({ id, val }) => {
+        const el = document.getElementById(id);
+        if (!el) return;
+        if (val > 0) { el.textContent = '▲'; el.style.color = 'var(--green)'; }
+        else if (val < 0) { el.textContent = '▼'; el.style.color = 'var(--red)'; }
+        else { el.textContent = '●'; el.style.color = 'var(--amber)'; }
+    });
+}
+
+/* ================= BIND NEW SLIDERS ================= */
+function bindNewSliders() {
+    [['withholdingRange','withholding','withholdingLabel','%'],
+     ['refundDelayRange','refundDelay','refundDelayLabel',''],
+     ['depositRefundDelayRange','depositRefundDelay','depositRefundDelayLabel','']
+    ].forEach(([rangeId, inputId, labelId, suffix]) => {
+        const range = document.getElementById(rangeId);
+        const input = document.getElementById(inputId);
+        const lbl = document.getElementById(labelId);
+        if (!range || !input) return;
+        range.addEventListener('input', () => {
+            input.value = range.value;
+            range.setAttribute('aria-valuenow', range.value);
+            if (lbl) lbl.textContent = range.value + suffix;
+            calculate();
+        });
+        input.addEventListener('input', () => {
+            range.value = parseFloat(input.value) || 0;
+            range.setAttribute('aria-valuenow', range.value);
+            if (lbl) lbl.textContent = (parseFloat(input.value) || 0) + suffix;
+            calculate();
+        });
+    });
+}
+bindNewSliders();
+
+/* ================= UPDATE ARIA ON ALL SLIDERS ================= */
+function updateAllSliderAria() {
+    document.querySelectorAll('input[type="range"]').forEach(r => {
+        r.setAttribute('aria-valuenow', r.value);
+    });
+}
+</script>
+</body>
+</html>
