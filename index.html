@@ -733,10 +733,62 @@
 
         *:focus-visible { outline: 3px dashed var(--accent); outline-offset: 3px; }
 
+        /* ===== CONFIDENCE CARD ===== */
+        .confidence-meter-wrap {
+            display: flex; align-items: center; gap: 16px; margin-bottom: 12px;
+        }
+        .confidence-bar-outer {
+            flex: 1; height: 14px; border-radius: 7px;
+            background: rgba(255,255,255,0.07); overflow: hidden;
+            border: 1px solid var(--border);
+        }
+        .confidence-bar-inner {
+            height: 100%; border-radius: 7px;
+            transition: width 0.6s cubic-bezier(0.4,0,0.2,1), background 0.5s ease;
+        }
+        .confidence-pct {
+            font-size: 26px; font-weight: 900; font-family: 'Courier New', monospace;
+            min-width: 64px; text-align: right;
+            transition: color 0.5s ease;
+        }
+        .confidence-label-text {
+            font-size: 12px; font-weight: 700; color: var(--muted);
+            text-transform: uppercase; letter-spacing: 0.4px;
+            white-space: nowrap;
+        }
+        .confidence-explainer {
+            font-size: 13px; color: var(--muted); line-height: 1.6;
+            padding: 10px 14px; background: rgba(77,179,255,0.04);
+            border-left: 3px solid var(--accent); border-radius: 0 6px 6px 0;
+            margin-bottom: 16px;
+        }
+        .breakeven-grid {
+            display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 12px;
+        }
+        .breakeven-item {
+            padding: 14px 16px; border-radius: 10px;
+            border: 1px solid var(--border);
+            background: rgba(77,179,255,0.03);
+            transition: background 0.3s ease, border-color 0.3s ease;
+        }
+        .breakeven-item:hover { background: rgba(77,179,255,0.08); border-color: var(--accent); }
+        .breakeven-label {
+            font-size: 10px; font-weight: 700; text-transform: uppercase;
+            letter-spacing: 0.4px; color: var(--muted); margin-bottom: 6px;
+        }
+        .breakeven-value {
+            font-size: 20px; font-weight: 900; font-family: 'Courier New', monospace;
+            margin-bottom: 4px;
+        }
+        .breakeven-sub {
+            font-size: 11px; color: var(--muted); line-height: 1.4;
+        }
+        .breakeven-na { color: var(--muted); font-size: 14px; font-style: italic; }
+
         @media (max-width: 768px) {
             body { padding: 12px; }
             .container { gap: 14px; display: flex; flex-direction: column; }
-            #verdictCard { order: 1; } #inputCard { order: 2; } #gaugeCard { order: 3; } #chartsSection { order: 4; } #tableCard { order: 5; }
+            #verdictCard { order: 1; } #inputCard { order: 2; } #gaugeCard { order: 3; } #confidenceCard { order: 4; } #chartsSection { order: 5; } #tableCard { order: 6; }
             #inputsGrid { grid-template-columns: 1fr !important; gap: 16px !important; }
             .card, .chartCard { padding: 16px; }
             .gauge { width: 180px; height: 180px; }
@@ -974,12 +1026,54 @@
         </div>
     </div>
 
+    <!-- CONFIDENCE & BREAKEVEN CARD -->
+    <div class="card" id="confidenceCard">
+        <div class="card-title"><span class="card-icon">🎯</span>Decision Confidence &amp; Breakeven Thresholds</div>
+
+        <div class="confidence-meter-wrap">
+            <div class="confidence-bar-outer" role="progressbar" aria-label="Decision confidence" aria-valuemin="0" aria-valuemax="100" id="confBar">
+                <div class="confidence-bar-inner" id="confidenceBarFill"></div>
+            </div>
+            <div style="display:flex;flex-direction:column;align-items:flex-end;gap:2px;">
+                <span class="confidence-pct" id="confidencePctBig">0%</span>
+                <span class="confidence-label-text" id="confidenceLabelText">Calculating…</span>
+            </div>
+        </div>
+
+        <div class="confidence-explainer" id="confidenceExplainer">
+            Enter your financial parameters to see confidence analysis.
+        </div>
+
+        <div class="divider"></div>
+
+        <div class="section-header">&#x2696;&#xFE0F; Your Decision Flips If…</div>
+        <p style="font-size:12px;color:var(--muted);margin-bottom:14px;line-height:1.5;">These are the thresholds at which leasing and renting become equally costly. Cross any one of them and the recommended option switches.</p>
+
+        <div class="breakeven-grid" id="breakevenGrid">
+            <div class="breakeven-item">
+                <div class="breakeven-label">&#x1F4C9; Market Rent Falls Below</div>
+                <div class="breakeven-value" id="beRent">—</div>
+                <div class="breakeven-sub" id="beRentSub">Current rent vs. this floor</div>
+            </div>
+            <div class="breakeven-item">
+                <div class="breakeven-label">&#x1F4C8; Loan Rate Rises Above</div>
+                <div class="breakeven-value" id="beLoanRate">—</div>
+                <div class="breakeven-sub" id="beLoanRateSub">Your current rate vs. ceiling</div>
+            </div>
+            <div class="breakeven-item">
+                <div class="breakeven-label">&#x1F4CA; Rent Growth Drops Below</div>
+                <div class="breakeven-value" id="beRentGrowth">—</div>
+                <div class="breakeven-sub" id="beRentGrowthSub">Expected growth vs. floor</div>
+            </div>
+        </div>
+    </div>
+
     <!-- CHARTS SECTION -->
     <div class="charts-grid" id="chartsSection">
 
         <div style="grid-column:1/-1;margin-bottom:12px;">
             <div class="info-banner" style="margin:0;">
-                <strong>📊 About the Charts:</strong> <strong>TCO Chart</strong> shows cost components. <strong>Monthly Comparison</strong> compares direct outflows. <strong>Cumulative Impact</strong> shows total spending over time. Study the spread between lease and rent lines.
+                <strong>📊 About the Charts:</strong> <strong>Cost Drivers</strong> breaks down every lease cost component. <strong>Monthly Comparison</strong> puts lease vs. rent side by side. <strong>Cumulative Impact</strong> shows total spending trajectory. <strong>Rent Growth</strong> tracks the month-by-month crossover point. <strong>Sensitivity</strong> reveals which inputs drive the outcome most.
             </div>
         </div>
 
@@ -999,18 +1093,6 @@
             <div class="card-title"><span class="card-icon">📈</span>Cumulative Cost Impact Over Time</div>
             <div class="chart-container"><canvas id="cumulativeImpactChart"></canvas></div>
             <div class="chart-description">Total accumulated costs. The spread between lines is your financial advantage.</div>
-        </div>
-
-        <div class="chartCard">
-            <div class="card-title"><span class="card-icon">🔥</span>Decision Robustness Matrix</div>
-            <div class="chart-container"><canvas id="sensitivityChart"></canvas></div>
-            <div class="chart-description">How does the outcome change with rent variations? Red = Lease advantage. Axis shows rent change %.</div>
-        </div>
-
-        <div class="chartCard">
-            <div class="card-title"><span class="card-icon">🥧</span>Economic Cost Distribution</div>
-            <div class="chart-container"><canvas id="costCompositionChart"></canvas></div>
-            <div class="chart-description">Which cost categories dominate: Interest, Opportunity costs, Maintenance, Withholding, Delays, Net Lease Risk.</div>
         </div>
 
         <div class="chartCard">
@@ -1137,8 +1219,8 @@ function toggleTheme() {
     updateThemeUI();
     setTimeout(() => {
         const colors = getChartColors();
-        [tcoChart, monthlyCostChart, cumulativeImpactChart, sensitivityChart,
-         costCompositionChart, rentProjectionChart, sensitivityHeatmapChart, amortizationChart]
+        [tcoChart, monthlyCostChart, cumulativeImpactChart,
+         rentProjectionChart, sensitivityHeatmapChart, amortizationChart]
         .forEach(c => { if (c) c.update(); });
     }, 100);
 }
@@ -1490,8 +1572,8 @@ function emi(P, r, n) {
 }
 
 /* ================= CHARTS ================= */
-let tcoChart, monthlyCostChart, cumulativeImpactChart, sensitivityChart,
-    costCompositionChart, rentProjectionChart, sensitivityHeatmapChart, amortizationChart;
+let tcoChart, monthlyCostChart, cumulativeImpactChart,
+    rentProjectionChart, sensitivityHeatmapChart, amortizationChart;
 
 let lastCalculationState = { monthlyLeaseCost: 0, monthlyRentCost: 0, LEASE_TENURE: 24 };
 
@@ -1594,65 +1676,7 @@ function initCharts(data) {
         cumulativeImpactChart.update();
     }
 
-    // 4. SENSITIVITY BUBBLE CHART
-    // FIX 3: x-axis label changed from 'Scenario Index' to 'Rent Change (%)'
-    if (!sensitivityChart) {
-        sensitivityChart = new Chart($('sensitivityChart'), {
-            type: 'bubble',
-            data: {
-                datasets: [
-                    { label: 'Lease Advantage', data: data.sensitivity.leaseAdvantage, backgroundColor: 'rgba(255,77,77,0.6)', borderColor: 'rgba(255,77,77,0.9)', borderWidth: 1 },
-                    { label: 'Rent Advantage', data: data.sensitivity.rentAdvantage, backgroundColor: 'rgba(46,204,113,0.6)', borderColor: 'rgba(46,204,113,0.9)', borderWidth: 1 }
-                ]
-            },
-            options: {
-                responsive: true, maintainAspectRatio: false,
-                plugins: { legend: { display: true, position: 'top' }, datalabels: { display: false } },
-                scales: {
-                    x: {
-                        title: { display: true, text: 'Rent Change (%)', color: colors.muted }, // FIX 3
-                        ticks: { callback: v => v + '%', color: colors.muted },
-                        grid: { color: colors.border }
-                    },
-                    y: {
-                        title: { display: true, text: 'Rent Growth Change (%)', color: colors.muted },
-                        ticks: { callback: v => v + '%', color: colors.muted },
-                        grid: { color: colors.border }
-                    }
-                }
-            }
-        });
-    } else {
-        sensitivityChart.data.datasets[0].data = data.sensitivity.leaseAdvantage;
-        sensitivityChart.data.datasets[1].data = data.sensitivity.rentAdvantage;
-        sensitivityChart.update();
-    }
-
-    // 5. COST COMPOSITION PIE
-    if (!costCompositionChart) {
-        costCompositionChart = new Chart($('costCompositionChart'), {
-            type: 'doughnut',
-            data: {
-                labels: data.composition.labels,
-                datasets: [{ data: data.composition.values, backgroundColor: ['rgba(255,77,77,0.9)','rgba(155,89,182,0.9)','rgba(241,196,15,0.9)','rgba(77,179,255,0.9)','rgba(46,204,113,0.9)','rgba(0,212,255,0.9)'], borderColor: colors.card, borderWidth: 3 }]
-            },
-            options: {
-                responsive: true, maintainAspectRatio: false,
-                plugins: {
-                    legend: { display: true, position: 'bottom', labels: { color: colors.text, padding: 18, usePointStyle: true, font: { weight: '700', size: 12 } } },
-                    datalabels: { color: colors.text, font: { weight: 'bold', size: 13 }, formatter: (v, ctx) => { const t = ctx.dataset.data.reduce((a,b)=>a+b,0); const p = ((v/t)*100).toFixed(0); return p > 5 ? p + '%' : ''; } },
-                    tooltip: { callbacks: { label: ctx => { const t = ctx.dataset.data.reduce((a,b)=>a+b,0); return `${formatINR(ctx.parsed)} (${((ctx.parsed/t)*100).toFixed(1)}%)`; } } }
-                }
-            },
-            plugins: [ChartDataLabels]
-        });
-    } else {
-        costCompositionChart.data.labels = data.composition.labels;
-        costCompositionChart.data.datasets[0].data = data.composition.values;
-        costCompositionChart.update();
-    }
-
-    // 6. RENT PROJECTION
+    // 5. RENT PROJECTION
     const rp = data.rentProjection;
     const monthlyM1Save = rp.monthlyRent[0] - rp.leaseConstant[0];
     const finalMonthSave = rp.monthlyRent[rp.monthlyRent.length - 1] - rp.leaseConstant[rp.leaseConstant.length - 1];
@@ -2024,6 +2048,17 @@ function calculate() {
 
         updateVerdictBanner(monthlySavings, termSavings, score, LEASE_TENURE, confidence);
 
+        // Update confidence card
+        updateConfidenceCard({
+            confidence, monthlySavings, monthlyLeaseCost, monthlyRentCost,
+            MARKET_RENT, LOAN_RATE_ANNUAL: LOAN_RATE_ANNUAL, RENT_INCREMENT,
+            LEASE_TENURE, RENT_DEPOSIT, CE_REAL_OPP_RATE, DEPOSIT_REFUND_DELAY, FLEXIBILITY_PREMIUM,
+            LOAN_AMOUNT, EFFECTIVE_LOAN_TENURE: effectiveLoanMonths,
+            OWN_FUNDS, LOCKED_FUNDS_RATE,
+            WITHHOLDING_CLAMPED, MAINTENANCE, LEASE_AMOUNT,
+            RISK_PREMIUM, depositRefundable, REFUND_DELAY
+        });
+
         // --- CHART DATA ---
         const tcoData = {
             labels: ['Interest Paid', 'Withholding Loss', 'Own Funds Opp Cost', 'Refund Delay Cost', 'Total Maintenance', 'Net Lease Risk Cost'],
@@ -2039,19 +2074,6 @@ function calculate() {
             cumulativeLeaseCosts.push(cL); cumulativeRentCosts.push(cR);
             cumulativeMonths.push('Y' + (Math.floor((m-1)/12)+1) + 'M' + ((m%12)||12));
         }
-
-        const sensitivityLeaseAdvantage = [], sensitivityRentAdvantage = [];
-        for (let rentChange = -15; rentChange <= 15; rentChange += 3) {
-            const adjRent = MARKET_RENT * (1 + rentChange / 100);
-            const adjustedSavings = adjRent - monthlyLeaseCost;
-            if (adjustedSavings > 0) sensitivityLeaseAdvantage.push({ x: rentChange, y: rentChange, r: Math.min(30, Math.sqrt(Math.abs(adjustedSavings)/100)) });
-            else sensitivityRentAdvantage.push({ x: rentChange, y: rentChange, r: Math.min(30, Math.sqrt(Math.abs(adjustedSavings)/100)) });
-        }
-
-        const compositionData = {
-            labels: ['Interest', 'Withholding', 'Own Funds Opp', 'Refund Delay', 'Maintenance', 'Net Lease Risk'],
-            values: [Math.max(1,totalInterestPaid), Math.max(1,withholdingLoss), Math.max(1,ownFundsOppCost), Math.max(1,delayCost), Math.max(1,totalMaintenanceCost), Math.max(1,riskCost)]
-        };
 
         let rentMonthlyRent = [], leaseConstantRent = [], cumulativeSavings = [], rentMonths = [], rentT = 0, leaseT = 0, crossoverMonth = null;
         for (let m = 1; m <= LEASE_TENURE; m++) {
@@ -2151,8 +2173,6 @@ function calculate() {
         initCharts({
             tco: tcoData, monthly: monthlyData,
             cumulative: { months: cumulativeMonths, leaseCosts: cumulativeLeaseCosts, buyCosts: cumulativeRentCosts },
-            sensitivity: { leaseAdvantage: sensitivityLeaseAdvantage, rentAdvantage: sensitivityRentAdvantage },
-            composition: compositionData,
             rentProjection: { months: rentMonths, monthlyRent: rentMonthlyRent, leaseConstant: leaseConstantRent, cumulativeSavings, crossoverMonth },
             sensitivityHeatmap: sensitivityHeatmapData,
             amortization: { months: amortMonths, principal: amortPrincipal, interest: amortInterest, balance: amortBalance }
@@ -2336,6 +2356,148 @@ function updateInteractiveSensitivityChart(data) {
             }
         }
     });
+}
+
+/* ================= CONFIDENCE CARD ================= */
+
+function computeTotalRentPaidFor(marketRent, LEASE_TENURE, RENT_INCREMENT) {
+    let total = 0;
+    for (let m = 1; m <= LEASE_TENURE; m++) {
+        total += marketRent * Math.pow(1 + RENT_INCREMENT, Math.floor((m - 1) / 12));
+    }
+    return total;
+}
+
+function computeMonthlyRentCostFor(marketRent, LEASE_TENURE, RENT_INCREMENT, RENT_DEPOSIT, CE_REAL_OPP_RATE, DEPOSIT_REFUND_DELAY, FLEXIBILITY_PREMIUM) {
+    const totalRentPaid = computeTotalRentPaidFor(marketRent, LEASE_TENURE, RENT_INCREMENT);
+    const rentDepositOppCost = RENT_DEPOSIT * (Math.pow(1 + CE_REAL_OPP_RATE, LEASE_TENURE) - 1);
+    const rentDepositDelayOppCost = DEPOSIT_REFUND_DELAY > 0 ? RENT_DEPOSIT * (Math.pow(1 + CE_REAL_OPP_RATE, DEPOSIT_REFUND_DELAY) - 1) : 0;
+    const flexCost = Math.min(FLEXIBILITY_PREMIUM * LEASE_TENURE, totalRentPaid + rentDepositOppCost + rentDepositDelayOppCost);
+    return Math.max(1, totalRentPaid + rentDepositOppCost + rentDepositDelayOppCost - flexCost) / LEASE_TENURE;
+}
+
+function computeMonthlyLeaseCostFor(loanRateAnnual, LOAN_AMOUNT, EFFECTIVE_LOAN_TENURE, OWN_FUNDS, LOCKED_FUNDS_RATE, LEASE_TENURE, WITHHOLDING_CLAMPED, MAINTENANCE, LEASE_AMOUNT, RISK_PREMIUM, depositRefundable, REFUND_DELAY) {
+    const r = (loanRateAnnual / 100) / 12;
+    const E = r === 0 ? LOAN_AMOUNT / EFFECTIVE_LOAN_TENURE : LOAN_AMOUNT * r * Math.pow(1 + r, EFFECTIVE_LOAN_TENURE) / (Math.pow(1 + r, EFFECTIVE_LOAN_TENURE) - 1);
+    const totalInterest = (E * EFFECTIVE_LOAN_TENURE) - LOAN_AMOUNT;
+    const withholdingLoss = LEASE_AMOUNT * WITHHOLDING_CLAMPED;
+    const ownFundsOppCost = OWN_FUNDS * (Math.pow(1 + LOCKED_FUNDS_RATE, LEASE_TENURE) - 1);
+    const delayCost = REFUND_DELAY > 0 ? depositRefundable * (Math.pow(1 + LOCKED_FUNDS_RATE, REFUND_DELAY) - 1) : 0;
+    const totalMaintenance = MAINTENANCE * LEASE_TENURE;
+    const riskCost = LEASE_AMOUNT * RISK_PREMIUM * (LEASE_TENURE / 12);
+    return (totalInterest + withholdingLoss + ownFundsOppCost + delayCost + totalMaintenance + riskCost) / LEASE_TENURE;
+}
+
+function computeMonthlyRentCostForGrowth(rentGrowthFrac, MARKET_RENT, LEASE_TENURE, RENT_DEPOSIT, CE_REAL_OPP_RATE, DEPOSIT_REFUND_DELAY, FLEXIBILITY_PREMIUM) {
+    const totalRentPaid = computeTotalRentPaidFor(MARKET_RENT, LEASE_TENURE, rentGrowthFrac);
+    const rentDepositOppCost = RENT_DEPOSIT * (Math.pow(1 + CE_REAL_OPP_RATE, LEASE_TENURE) - 1);
+    const rentDepositDelayOppCost = DEPOSIT_REFUND_DELAY > 0 ? RENT_DEPOSIT * (Math.pow(1 + CE_REAL_OPP_RATE, DEPOSIT_REFUND_DELAY) - 1) : 0;
+    const flexCost = Math.min(FLEXIBILITY_PREMIUM * LEASE_TENURE, totalRentPaid + rentDepositOppCost + rentDepositDelayOppCost);
+    return Math.max(1, totalRentPaid + rentDepositOppCost + rentDepositDelayOppCost - flexCost) / LEASE_TENURE;
+}
+
+function updateConfidenceCard(params) {
+    const {
+        confidence, monthlySavings, monthlyLeaseCost, monthlyRentCost,
+        MARKET_RENT, LOAN_RATE_ANNUAL, RENT_INCREMENT,
+        LEASE_TENURE, RENT_DEPOSIT, CE_REAL_OPP_RATE, DEPOSIT_REFUND_DELAY, FLEXIBILITY_PREMIUM,
+        LOAN_AMOUNT, EFFECTIVE_LOAN_TENURE, OWN_FUNDS, LOCKED_FUNDS_RATE,
+        WITHHOLDING_CLAMPED, MAINTENANCE, LEASE_AMOUNT, RISK_PREMIUM, depositRefundable, REFUND_DELAY
+    } = params;
+
+    const conf = Math.round(confidence);
+    const leaseBetter = monthlySavings > 0;
+
+    // Confidence bar color
+    let barColor = conf >= 70 ? '#2ecc71' : conf >= 40 ? '#f1c40f' : '#ff4d4d';
+    let labelText = conf >= 70 ? 'High confidence' : conf >= 40 ? 'Moderate confidence' : 'Low confidence — close call';
+
+    const barFill = $('confidenceBarFill');
+    barFill.style.width = conf + '%';
+    barFill.style.background = `linear-gradient(90deg, ${barColor}aa, ${barColor})`;
+
+    const pctEl = $('confidencePctBig');
+    pctEl.textContent = conf + '%';
+    pctEl.style.color = barColor;
+    $('confBar').setAttribute('aria-valuenow', conf);
+
+    $('confidenceLabelText').textContent = labelText;
+
+    // Confidence explainer
+    const absMonthly = formatINR(Math.abs(monthlySavings));
+    const marginPct = Math.round(Math.abs(monthlySavings) / Math.max(monthlyLeaseCost, monthlyRentCost) * 100);
+    let explainerText = '';
+    if (leaseBetter) {
+        explainerText = `Leasing saves you <strong>${absMonthly}/month</strong> — a <strong>${marginPct}% cost margin</strong> over renting. ` +
+            (conf >= 70 ? `This margin is wide enough that moderate market changes (rent drops, rate hikes) are unlikely to flip the decision.` :
+             conf >= 40 ? `This margin is moderate. A meaningful drop in market rent or a rise in your loan rate could make renting the better choice.` :
+             `This is a slim margin. Small changes in rent levels, loan rates, or rent growth assumptions could reverse the verdict — review the breakeven thresholds carefully.`);
+    } else {
+        explainerText = `Renting is cheaper by <strong>${absMonthly}/month</strong> — a <strong>${marginPct}% cost advantage</strong> over leasing. ` +
+            (conf >= 70 ? `This gap is significant. Lease only if you have strong qualitative reasons (stability, no landlord risk) beyond the numbers.` :
+             conf >= 40 ? `This gap is moderate. If market rents rise or loan rates fall meaningfully, leasing could become competitive.` :
+             `This is a slim margin. A moderate rent increase or loan rate drop could tip the math in favour of leasing.`);
+    }
+    $('confidenceExplainer').innerHTML = explainerText;
+
+    // ---- BREAKEVEN: Market Rent ----
+    // Binary search for the market rent where monthlyRentCost = monthlyLeaseCost
+    let lo = 0, hi = MARKET_RENT * 4;
+    for (let i = 0; i < 60; i++) {
+        const mid = (lo + hi) / 2;
+        const mrc = computeMonthlyRentCostFor(mid, LEASE_TENURE, RENT_INCREMENT, RENT_DEPOSIT, CE_REAL_OPP_RATE, DEPOSIT_REFUND_DELAY, FLEXIBILITY_PREMIUM);
+        if (mrc > monthlyLeaseCost) hi = mid; else lo = mid;
+    }
+    const beRentVal = (lo + hi) / 2;
+    const rentMarginPct = Math.round(Math.abs(MARKET_RENT - beRentVal) / MARKET_RENT * 100);
+    $('beRent').textContent = formatINR(beRentVal) + '/mo';
+    $('beRent').style.color = leaseBetter ? '#2ecc71' : '#ff4d4d';
+    $('beRentSub').textContent = leaseBetter
+        ? `Current rent is ${formatINR(MARKET_RENT)} — ${rentMarginPct}% above the breakeven floor. Rent must fall by ₹${Math.round(MARKET_RENT - beRentVal).toLocaleString('en-IN')} to flip the decision.`
+        : `Current rent is ${formatINR(MARKET_RENT)} — must rise by ₹${Math.round(beRentVal - MARKET_RENT).toLocaleString('en-IN')} for leasing to break even.`;
+
+    // ---- BREAKEVEN: Loan Rate ----
+    lo = 0; hi = 50;
+    for (let i = 0; i < 60; i++) {
+        const mid = (lo + hi) / 2;
+        const mlc = computeMonthlyLeaseCostFor(mid, LOAN_AMOUNT, EFFECTIVE_LOAN_TENURE, OWN_FUNDS, LOCKED_FUNDS_RATE, LEASE_TENURE, WITHHOLDING_CLAMPED, MAINTENANCE, LEASE_AMOUNT, RISK_PREMIUM, depositRefundable, REFUND_DELAY);
+        if (mlc > monthlyRentCost) hi = mid; else lo = mid;
+    }
+    const beLoanRateVal = (lo + hi) / 2;
+    const loanRateMargin = Math.abs(LOAN_RATE_ANNUAL - beLoanRateVal).toFixed(1);
+    if (beLoanRateVal >= 49 || beLoanRateVal <= 0.1) {
+        $('beLoanRate').textContent = leaseBetter ? '> 50%' : '< 0%';
+        $('beLoanRate').style.color = '#2ecc71';
+        $('beLoanRateSub').textContent = 'No realistic loan rate will flip this decision.';
+    } else {
+        $('beLoanRate').textContent = beLoanRateVal.toFixed(1) + '%';
+        $('beLoanRate').style.color = leaseBetter ? (beLoanRateVal > LOAN_RATE_ANNUAL ? '#2ecc71' : '#ff4d4d') : '#f1c40f';
+        $('beLoanRateSub').textContent = leaseBetter
+            ? `Your current rate is ${LOAN_RATE_ANNUAL}% — ${loanRateMargin}pp below the ceiling. Rate needs to rise by ${loanRateMargin}pp to flip the decision.`
+            : `Leasing would break even at ${beLoanRateVal.toFixed(1)}% (current: ${LOAN_RATE_ANNUAL}%).`;
+    }
+
+    // ---- BREAKEVEN: Rent Growth ----
+    lo = -0.5; hi = 1.0; // -50% to +100% annual
+    for (let i = 0; i < 60; i++) {
+        const mid = (lo + hi) / 2;
+        const mrc = computeMonthlyRentCostForGrowth(mid, MARKET_RENT, LEASE_TENURE, RENT_DEPOSIT, CE_REAL_OPP_RATE, DEPOSIT_REFUND_DELAY, FLEXIBILITY_PREMIUM);
+        if (mrc > monthlyLeaseCost) hi = mid; else lo = mid;
+    }
+    const beRentGrowthVal = (lo + hi) / 2 * 100;
+    const beRGDisplay = beRentGrowthVal.toFixed(1) + '%';
+    const rgMargin = Math.abs(RENT_INCREMENT * 100 - beRentGrowthVal).toFixed(1);
+    if (beRentGrowthVal <= -20) {
+        $('beRentGrowth').textContent = 'N/A';
+        $('beRentGrowth').style.color = '#2ecc71';
+        $('beRentGrowthSub').textContent = 'Even with falling rents, leasing stays favourable.';
+    } else {
+        $('beRentGrowth').textContent = beRGDisplay + '/yr';
+        $('beRentGrowth').style.color = leaseBetter ? (beRentGrowthVal < RENT_INCREMENT * 100 ? '#2ecc71' : '#ff4d4d') : '#f1c40f';
+        $('beRentGrowthSub').textContent = leaseBetter
+            ? `Rent growth must fall ${rgMargin}pp (to ${beRGDisplay}/yr) from the current ${(RENT_INCREMENT * 100).toFixed(1)}% to flip the verdict.`
+            : `Rent growth above ${beRGDisplay}/yr would make leasing competitive (current: ${(RENT_INCREMENT * 100).toFixed(1)}%).`;
+    }
 }
 
 /* ================= INIT ================= */
